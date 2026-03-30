@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
-import StatusGrid from '@/components/StatusGrid';
-import ChartSection from '@/components/ChartSection';
 import {
   ShoppingCartIcon,
   TruckIcon,
@@ -190,12 +188,6 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-
-        {/* Status Grid */}
-        <StatusGrid stats={stats} />
-        
-        {/* Charts Section */}
-        <ChartSection stats={stats} />
 
         {/* Module cards */}
         <div>
