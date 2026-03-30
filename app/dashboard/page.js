@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
+import StatusGrid from '@/components/StatusGrid';
+import ChartSection from '@/components/ChartSection';
 import {
   ShoppingCartIcon,
   TruckIcon,
