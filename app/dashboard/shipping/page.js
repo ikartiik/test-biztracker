@@ -93,6 +93,25 @@ export default function ShippingPage() {
     else toast.error('Delete failed');
   };
 
+  const handleShipAll = async (entry) => {
+    const remaining = entry.quantityRemaining ?? 0;
+    if (remaining <= 0) return;
+    if (!window.confirm(`Ship all ${remaining} remaining units of "${entry.itemDescription}"?`)) return;
+    try {
+      const newEntries = [
+        ...(entry.shipmentEntries || []),
+        { quantityShipped: remaining, dateOfShipping: new Date().toISOString().slice(0, 10), remarks: 'Bulk ship — all remaining' },
+      ];
+      const res = await fetch(`/api/shipping?id=${entry._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shipmentEntries: newEntries, status: 'Shipped' }),
+      });
+      if (res.ok) { toast.success(`All ${remaining} units shipped`); load(); }
+      else toast.error('Failed to ship');
+    } catch { toast.error('Network error'); }
+  };
+
   const pendingCount = entries.filter(e => e.status === 'Pending').length;
   const shippedCount = entries.filter(e => e.status === 'Shipped').length;
 
@@ -198,10 +217,18 @@ export default function ShippingPage() {
                       <td>
                         <div className="flex items-center gap-2">
                           {entry.status !== 'Shipped' && (
-                            <button onClick={() => setShipModal(entry)}
-                              className="flex items-center gap-1 text-xs text-primary hover:underline font-semibold">
-                              <PlusIcon className="w-3.5 h-3.5" /> Add
-                            </button>
+                            <>
+                              <button onClick={() => setShipModal(entry)}
+                                className="flex items-center gap-1 text-xs text-primary hover:underline font-semibold">
+                                <PlusIcon className="w-3.5 h-3.5" /> Add
+                              </button>
+                              {(entry.quantityRemaining ?? 0) > 0 && (
+                                <button onClick={() => handleShipAll(entry)}
+                                  className="flex items-center gap-1 text-xs text-emerald-600 hover:underline font-semibold">
+                                  Ship All
+                                </button>
+                              )}
+                            </>
                           )}
                           {entry.shipmentEntries?.length > 0 && (
                             <button

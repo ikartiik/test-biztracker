@@ -51,7 +51,12 @@ export async function PUT(req) {
     const id = url.searchParams.get('id');
     const data = await req.json();
     if (!id) return NextResponse.json({ error: 'ID required' }, { status: 400 });
-    const shipping = await Shipping.findByIdAndUpdate(id, data, { new: true });
+    // Use findById + save() so the pre-save hook recalculates
+    // quantityShipped and quantityRemaining from shipmentEntries
+    const shipping = await Shipping.findById(id);
+    if (!shipping) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    Object.assign(shipping, data);
+    await shipping.save();
     return NextResponse.json(shipping);
   } catch (error) {
     console.error('Shipping update failed', error);
