@@ -6,233 +6,192 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
 import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  XMarkIcon,
-  MagnifyingGlassIcon,
-  BuildingOfficeIcon,
-  UserIcon,
-  PhoneIcon,
-  EnvelopeIcon,
-  MapPinIcon
+  PlusIcon, PencilIcon, TrashIcon, XMarkIcon,
+  MagnifyingGlassIcon, BuildingOfficeIcon, ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
+import { exportVendors } from '@/lib/exportExcel';
+
+const emptyForm = {
+  company: '', salespersonName: '', contact: '',
+  phone: '', email: '', address: '', status: 'Active',
+};
 
 export default function VendorsPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [vendors, setVendors] = useState([]);
-  const [filteredVendors, setFilteredVendors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingVendor, setEditingVendor] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [formData, setFormData] = useState({
-    company: '',
-    salespersonName: '',
-    contact: '',
-    phone: '',
-    email: '',
-    address: '',
-    status: 'Active'
-  });
+
+  const [vendors,   setVendors]   = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing,   setEditing]   = useState(null);
+  const [search,    setSearch]    = useState('');
+  const [form,      setForm]      = useState(emptyForm);
 
   useEffect(() => {
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-    fetchVendors();
-  }, [session, router]);
+    if (!session) { router.push('/login'); return; }
+    load();
+  }, [session]);
 
-  const fetchVendors = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await fetch('/api/vendors');
-      const data = await response.json();
-      setVendors(data);
-      setFilteredVendors(data);
-    } catch (error) {
-      toast.error('Failed to load vendors');
-    } finally {
-      setLoading(false);
-    }
+      const res  = await fetch('/api/vendors');
+      const data = await res.json();
+      setVendors(Array.isArray(data) ? data : []);
+    } catch { toast.error('Failed to load vendors'); }
+    finally { setLoading(false); }
   };
+
+  const filtered = vendors.filter(v =>
+    v.company?.toLowerCase().includes(search.toLowerCase()) ||
+    v.salespersonName?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const activeCount   = vendors.filter(v => v.status === 'Active').length;
+  const inactiveCount = vendors.filter(v => v.status !== 'Active').length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const url = editingVendor ? `/api/vendors/${editingVendor._id}` : '/api/vendors';
-      const method = editingVendor ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
+      const url = editing ? `/api/vendors/${editing._id}` : '/api/vendors';
+      const res = await fetch(url, {
+        method:  editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body:    JSON.stringify(form),
       });
-      
-      if (response.ok) {
-        toast.success(editingVendor ? 'Vendor updated' : 'Vendor created');
-        fetchVendors();
-        closeModal();
-      } else {
-        toast.error('Failed to save vendor');
-      }
-    } catch (error) {
-      toast.error('Network error');
-    }
+      if (res.ok) {
+        toast.success(editing ? 'Vendor updated' : 'Vendor created');
+        load(); closeModal();
+      } else toast.error('Failed to save vendor');
+    } catch { toast.error('Network error'); }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this vendor?')) {
-      try {
-        const response = await fetch(`/api/vendors/${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          toast.success('Vendor deleted');
-          fetchVendors();
-        }
-      } catch (error) {
-        toast.error('Delete failed');
-      }
-    }
+    if (!window.confirm('Delete this vendor?')) return;
+    const res = await fetch(`/api/vendors/${id}`, { method: 'DELETE' });
+    if (res.ok) { toast.success('Deleted'); load(); }
+    else toast.error('Delete failed');
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingVendor(null);
-    setFormData({
-      company: '',
-      salespersonName: '',
-      contact: '',
-      phone: '',
-      email: '',
-      address: '',
-      status: 'Active'
+  const openEdit = (vendor) => {
+    setEditing(vendor);
+    setForm({
+      company:         vendor.company         || '',
+      salespersonName: vendor.salespersonName || '',
+      contact:         vendor.contact         || '',
+      phone:           vendor.phone           || '',
+      email:           vendor.email           || '',
+      address:         vendor.address         || '',
+      status:          vendor.status          || 'Active',
     });
+    setModalOpen(true);
   };
 
-  const openEditModal = (vendor) => {
-    setEditingVendor(vendor);
-    setFormData({
-      company: vendor.company,
-      salespersonName: vendor.salespersonName,
-      contact: vendor.contact || '',
-      phone: vendor.phone || '',
-      email: vendor.email || '',
-      address: vendor.address || '',
-      status: vendor.status || 'Active'
-    });
-    setIsModalOpen(true);
-  };
+  const closeModal = () => { setModalOpen(false); setEditing(null); setForm(emptyForm); };
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  const filteredResults = filteredVendors.filter(vendor =>
-    vendor.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    vendor.salespersonName.toLowerCase().includes(searchQuery.toLowerCase())
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm font-medium">Loading…</span>
+      </div>
+    </div>
   );
-
-  if (loading) return <div className="p-8 text-center">Loading vendors...</div>;
-  if (!session) return null;
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="space-y-5">
+
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Vendors Management</h1>
-            <p className="text-muted-foreground mt-2">Manage vendor information and contacts ({vendors.length})</p>
+            <h1 className="text-2xl font-bold text-foreground">Vendors</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {vendors.length} total · {activeCount} active · {inactiveCount} inactive
+            </p>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 font-semibold shadow-lg transition-all"
-          >
-            <PlusIcon className="w-5 h-5" />
-            Add Vendor
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="glass-card p-6">
-          <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search vendors by name or company..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => exportVendors(filtered.map(v => ({
+                companyName: v.company, salesperson: v.salespersonName,
+                contactNo: v.phone, email: v.email, address: v.address,
+              })))}
+              disabled={!filtered.length}
+              className="btn btn-ghost text-sm">
+              <ArrowDownTrayIcon className="w-4 h-4" /> Export
+            </button>
+            <button onClick={() => setModalOpen(true)} className="btn btn-primary text-sm">
+              <PlusIcon className="w-4 h-4" /> Add Vendor
+            </button>
           </div>
         </div>
 
-        {/* Vendors Table */}
+        {/* ── Search ── */}
+        <div className="relative">
+          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input type="text" placeholder="Search vendors…" value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg bg-card text-foreground text-sm
+                       focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent" />
+        </div>
+
+        {/* ── Table ── */}
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="tracker-table">
               <thead>
-                <tr className="border-t border-border">
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Company
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Contact
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Phone
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Email
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </th>
+                <tr>
+                  <th>Company</th>
+                  <th>Salesperson</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Address</th>
+                  <th>Status</th>
+                  <th style={{textAlign:'right'}}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {filteredResults.map((vendor) => (
-                  <tr key={vendor._id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-foreground">{vendor.company}</div>
-                      <div className="text-sm text-muted-foreground">{vendor.address}</div>
+              <tbody>
+                {filtered.map(vendor => (
+                  <tr key={vendor._id}>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-rose-600">
+                            {vendor.company?.slice(0,2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground leading-tight">{vendor.company}</p>
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium">{vendor.salespersonName}</div>
-                      <div className="text-sm text-muted-foreground">{vendor.contact}</div>
+                    <td>
+                      <p className="font-medium text-sm text-foreground">{vendor.salespersonName}</p>
+                      {vendor.contact && <p className="text-xs text-muted-foreground">{vendor.contact}</p>}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="font-mono">{vendor.phone}</div>
+                    <td className="font-mono text-sm">{vendor.phone || <span className="text-muted-foreground">—</span>}</td>
+                    <td>
+                      {vendor.email
+                        ? <a href={`mailto:${vendor.email}`} className="text-sm text-primary hover:underline">{vendor.email}</a>
+                        : <span className="text-muted-foreground text-sm">—</span>}
                     </td>
-                    <td className="px-6 py-4">
-                      <a href={`mailto:${vendor.email}`} className="text-primary hover:underline text-sm">
-                        {vendor.email}
-                      </a>
+                    <td className="text-sm text-muted-foreground max-w-[180px] truncate">
+                      {vendor.address || '—'}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                        vendor.status === 'Active' 
-                          ? 'bg-emerald-100 text-emerald-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                    <td>
+                      <span className={`badge ${vendor.status === 'Active' ? 'badge-success' : 'badge-neutral'}`}>
                         {vendor.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openEditModal(vendor)}
-                          className="p-2 hover:bg-accent rounded-xl text-muted-foreground hover:text-primary transition-colors"
-                          title="Edit"
-                        >
+                    <td>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(vendor)} title="Edit"
+                          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors">
                           <PencilIcon className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(vendor._id)}
-                          className="p-2 hover:bg-destructive/10 rounded-xl text-destructive hover:text-destructive transition-colors"
-                          title="Delete"
-                        >
+                        <button onClick={() => handleDelete(vendor._id)} title="Delete"
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors">
                           <TrashIcon className="w-4 h-4" />
                         </button>
                       </div>
@@ -242,119 +201,105 @@ export default function VendorsPage() {
               </tbody>
             </table>
           </div>
-          
-          {filteredResults.length === 0 && !loading && (
-            <div className="text-center py-20">
-              <BuildingOfficeIcon className="w-20 h-20 text-muted-foreground mx-auto mb-6" />
-              <h3 className="text-2xl font-bold text-foreground mb-3">No vendors found</h3>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Add your first vendor to get started with purchase tracking.
+
+          {!filtered.length && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-rose-50 flex items-center justify-center mb-4">
+                <BuildingOfficeIcon className="w-7 h-7 text-rose-500" />
+              </div>
+              <p className="font-semibold text-foreground">No vendors found</p>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
+                {search ? 'Try a different search term.' : 'Add your first vendor to get started.'}
               </p>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="bg-primary text-primary-foreground px-8 py-3 rounded-xl hover:bg-primary/90 font-semibold shadow-lg transition-all"
-              >
-                Add First Vendor
-              </button>
+              {!search && (
+                <button onClick={() => setModalOpen(true)} className="btn btn-primary text-sm">
+                  <PlusIcon className="w-4 h-4" /> Add Vendor
+                </button>
+              )}
             </div>
           )}
         </div>
+      </div>
 
-        {/* Add/Edit Vendor Modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="glass-card max-w-lg w-full">
-              <div className="sticky top-0 bg-card/90 backdrop-blur-sm border-b border-border p-6 z-10">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-foreground">
-                    {editingVendor ? 'Edit Vendor' : 'New Vendor'}
-                  </h2>
-                  <button onClick={closeModal} className="p-2 rounded-xl hover:bg-accent">
-                    <XMarkIcon className="w-6 h-6 text-muted-foreground" />
-                  </button>
+      {/* ── Modal ── */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-lg shadow-2xl">
+
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-bold text-foreground">
+                {editing ? 'Edit Vendor' : 'New Vendor'}
+              </h2>
+              <button onClick={closeModal}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors">
+                <XMarkIcon className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">
+                  Company Name <span className="text-red-500">*</span>
+                </label>
+                <input type="text" required value={form.company} onChange={set('company')}
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">
+                  Salesperson Name <span className="text-red-500">*</span>
+                </label>
+                <input type="text" required value={form.salespersonName} onChange={set('salespersonName')}
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Phone</label>
+                  <input type="tel" value={form.phone} onChange={set('phone')}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Email</label>
+                  <input type="email" value={form.email} onChange={set('email')}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Company Name *</label>
-                  <input
-                    type="text"
-                    value={formData.company}
-                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                    className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Address</label>
+                <textarea value={form.address} onChange={set('address')} rows={2}
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Salesperson Name *</label>
-                  <input
-                    type="text"
-                    value={formData.salespersonName}
-                    onChange={(e) => setFormData({ ...formData, salespersonName: e.target.value })}
-                    className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Status</label>
+                <select value={form.status} onChange={set('status')}
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Phone</label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Address</label>
-                  <textarea
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    rows="3"
-                    className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary resize-vertical"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Status</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-
-                <div className="flex gap-4 pt-4 border-t border-border">
-                  <button type="submit" className="btn btn-primary flex-1">
-                    {editingVendor ? 'Update Vendor' : 'Create Vendor'}
-                  </button>
-                  <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div className="flex gap-3 pt-2 border-t border-border">
+                <button type="submit" className="btn btn-primary flex-1">
+                  {editing ? 'Save Changes' : 'Create Vendor'}
+                </button>
+                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-
-      </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

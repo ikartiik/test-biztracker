@@ -1,363 +1,322 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
 import {
-  PlusIcon,
-  EyeIcon,
-  TrashIcon,
-  XMarkIcon,
-  ArrowPathIcon,
-  TruckIcon,
-  FunnelIcon,
-  MagnifyingGlassIcon,
-  ArrowDownTrayIcon
+  TruckIcon, ArrowPathIcon, TrashIcon, XMarkIcon,
+  PlusIcon, ChevronDownIcon, ChevronUpIcon, ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import { exportShipping } from '@/lib/exportExcel';
 
-export default function ShippingTracker() {
+const PRIORITY_BADGE = {
+  'Critical': 'badge-danger',
+  'High':     'badge-warning',
+  'Medium':   'badge-info',
+  'Low':      'badge-neutral',
+};
+
+export default function ShippingPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [shippingEntries, setShippingEntries] = useState([]);
-  const [filteredShippingEntries, setFilteredShippingEntries] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isShipmentModalOpen, setIsShipmentModalOpen] = useState(false);
-  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [filterVisible, setFilterVisible] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [shipmentData, setShipmentData] = useState({
-    quantityShipped: '',
-    dateOfShipping: new Date().toISOString().split('T')[0],
-    remarks: ''
-  });
-  const [bulkShipmentData, setBulkShipmentData] = useState({
-    dateOfShipping: new Date().toISOString().split('T')[0],
-    remarks: ''
+
+  const [entries,    setEntries]    = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [syncing,    setSyncing]    = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
+  const [shipModal,  setShipModal]  = useState(null);
+  const [shipForm,   setShipForm]   = useState({
+    quantityShipped: '', dateOfShipping: new Date().toISOString().slice(0, 10), remarks: '',
   });
 
   useEffect(() => {
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-    fetchShippingEntries();
-  }, [session, router]);
+    if (!session) { router.push('/login'); return; }
+    load();
+  }, [session]);
 
-  // Apply filters whenever shippingEntries or filters change
-  useEffect(() => {
-    applyFilters();
-  }, [shippingEntries]);
-
-  const fetchShippingEntries = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await fetch('/api/shipping');
-      const data = await response.json();
-      setShippingEntries(data);
-    } catch (error) {
-      toast.error('Failed to load shipping entries');
-    } finally {
-      setLoading(false);
-    }
+      const res  = await fetch('/api/shipping');
+      const data = await res.json();
+      setEntries(Array.isArray(data) ? data : []);
+    } catch { toast.error('Failed to load shipping data'); }
+    finally { setLoading(false); }
   };
 
-  const applyFilters = useCallback(() => {
-    // Simple filtering logic - extend as needed
-    setFilteredShippingEntries(shippingEntries);
-  }, [shippingEntries]);
-
-  const syncWithImportsPurchases = async () => {
+  const handleSync = async () => {
+    setSyncing(true);
     try {
-      setSyncing(true);
-      const response = await fetch('/api/shipping/sync', { method: 'POST' });
-      if (response.ok) {
-        toast.success('Pending tracker updated');
-        fetchShippingEntries();
-      }
-    } catch (error) {
-      toast.error('Sync failed');
-    } finally {
-      setSyncing(false);
-    }
+      const res  = await fetch('/api/shipping/sync', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.created > 0 ? `Synced ${data.created} new entries` : 'Already up to date');
+        load();
+      } else toast.error(data.error || 'Sync failed');
+    } catch { toast.error('Sync failed'); }
+    finally { setSyncing(false); }
   };
 
-  const handleShipment = async (e) => {
+  const handleAddShipment = async (e) => {
     e.preventDefault();
+    const entry = shipModal;
+    const qty   = parseInt(shipForm.quantityShipped);
+    if (!qty || qty <= 0)                  { toast.error('Enter a valid quantity'); return; }
+    if (qty > (entry.quantityRemaining||0)){ toast.error(`Only ${entry.quantityRemaining} remaining`); return; }
     try {
-      const response = await fetch('/api/shipping', {
-        method: 'POST',
+      const newEntries   = [...(entry.shipmentEntries || []),
+        { quantityShipped: qty, dateOfShipping: shipForm.dateOfShipping, remarks: shipForm.remarks }];
+      const totalShipped = newEntries.reduce((s, e) => s + e.quantityShipped, 0);
+      const res = await fetch(`/api/shipping?id=${entry._id}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...shipmentData,
-          pendingItems: selectedItems
+          shipmentEntries: newEntries,
+          status: totalShipped >= entry.totalQuantity ? 'Shipped' : 'Pending',
         }),
       });
-      
-      if (response.ok) {
-        toast.success('Shipment added successfully and pending tracker updated');
-        fetchShippingEntries();
-        closeShipmentModal();
-      }
-    } catch (error) {
-      toast.error('Failed to save shipment');
-    }
+      if (res.ok) {
+        toast.success('Shipment recorded');
+        setShipModal(null);
+        setShipForm({ quantityShipped: '', dateOfShipping: new Date().toISOString().slice(0,10), remarks: '' });
+        load();
+      } else toast.error('Failed to save shipment');
+    } catch { toast.error('Network error'); }
   };
 
-  const handleBulkShipment = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('/api/shipping/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...bulkShipmentData,
-          pendingItems: selectedItems
-        }),
-      });
-      
-      if (response.ok) {
-        toast.success('Bulk shipment completed');
-        fetchShippingEntries();
-        setSelectedItems([]);
-      }
-    } catch (error) {
-      toast.error('Bulk shipment failed');
-    }
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this shipping entry?')) return;
+    const res = await fetch(`/api/shipping?id=${id}`, { method: 'DELETE' });
+    if (res.ok) { toast.success('Deleted'); load(); }
+    else toast.error('Delete failed');
   };
 
-  const handleDeleteShipment = async (shippingId, shipmentIndex) => {
-    if (window.confirm('Are you sure you want to delete this shipment entry?')) {
-      try {
-        const response = await fetch(`/api/shipping/${shippingId}`, { method: 'DELETE' });
-        if (response.ok) {
-          toast.success('Shipment deleted');
-          fetchShippingEntries();
-        }
-      } catch (error) {
-        toast.error('Delete failed');
-      }
-    }
-  };
+  const pendingCount = entries.filter(e => e.status === 'Pending').length;
+  const shippedCount = entries.filter(e => e.status === 'Shipped').length;
 
-  const closeShipmentModal = () => {
-    setIsShipmentModalOpen(false);
-    setSelectedItems([]);
-    setShipmentData({
-      quantityShipped: '',
-      dateOfShipping: new Date().toISOString().split('T')[0],
-      remarks: ''
-    });
-  };
-
-  const getSourceColor = (source) => {
-    switch (source) {
-      case 'Import': return 'bg-blue-100 text-blue-800';
-      case 'Purchase': return 'bg-emerald-100 text-emerald-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  if (loading) return <div className="p-8 text-center">Loading shipping entries...</div>;
-  if (!session) return null;
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm font-medium">Loading…</span>
+      </div>
+    </div>
+  );
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="space-y-5">
+
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Shipping Tracker</h1>
-            <p className="text-muted-foreground mt-2">Manage shipments and track delivery status ({filteredShippingEntries.length})</p>
+            <h1 className="text-2xl font-bold text-foreground">Shipping Tracker</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {pendingCount} pending · {shippedCount} fully shipped
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={syncWithImportsPurchases}
-              disabled={syncing}
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 flex items-center gap-2 font-semibold disabled:opacity-50 transition-all"
-            >
-              <ArrowPathIcon className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync Data'}
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={() => exportShipping(entries)} disabled={!entries.length}
+              className="btn btn-ghost text-sm">
+              <ArrowDownTrayIcon className="w-4 h-4" /> Export
             </button>
-            <button
-              onClick={() => setFilterVisible(!filterVisible)}
-              className="p-3 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-colors flex items-center gap-2"
-            >
-              <FunnelIcon className="w-5 h-5" />
-              Filters
+            <button onClick={handleSync} disabled={syncing} className="btn btn-primary text-sm">
+              <ArrowPathIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing…' : 'Sync Data'}
             </button>
           </div>
         </div>
 
-        {/* Filter Panel */}
-        {filterVisible && (
-          <div className="glass-card p-6">
-            {/* Filter controls */}
-            <p className="text-sm text-muted-foreground">Filters coming soon...</p>
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Total</p>
+            <p className="text-2xl font-black text-foreground">{entries.length}</p>
           </div>
-        )}
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Pending</p>
+            <p className="text-2xl font-black text-amber-600">{pendingCount}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Shipped</p>
+            <p className="text-2xl font-black text-emerald-600">{shippedCount}</p>
+          </div>
+        </div>
 
-        {/* Main Table */}
+        {/* ── Table ── */}
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="tracker-table">
               <thead>
-                <tr className="border-t border-border">
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Item/Source
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Quantity Shipped
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Remarks
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </th>
+                <tr>
+                  <th>Serial</th>
+                  <th>Item</th>
+                  <th>Source</th>
+                  <th style={{textAlign:'right'}}>Total</th>
+                  <th style={{textAlign:'right'}}>Shipped</th>
+                  <th style={{textAlign:'right'}}>Remaining</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Shipments</th>
+                  <th style={{textAlign:'right'}}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {filteredShippingEntries.map((entry) => (
-                  <tr key={entry._id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-medium">{entry.pendingItemDescription}</div>
-                      <div className="text-xs text-muted-foreground">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getSourceColor(entry.source)}`}>
-                          {entry.source}
+              <tbody>
+                {entries.map(entry => (
+                  <>
+                    <tr key={entry._id}>
+                      <td className="font-mono text-xs text-muted-foreground">{entry.serialNumber || '—'}</td>
+                      <td>
+                        <p className="font-medium text-foreground max-w-[220px] truncate">{entry.itemDescription}</p>
+                      </td>
+                      <td>
+                        <span className={`badge ${entry.source === 'Import' ? 'badge-violet' : 'badge-info'}`}>
+                          {entry.source || entry.sourceModel}
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-mono font-semibold">{entry.quantityShipped}</td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">
-                      {new Date(entry.dateOfShipping).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 text-sm font-semibold bg-emerald-100 text-emerald-800 rounded-full">
-                        {entry.status || 'Shipped'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 max-w-xs">
-                      <div className="text-sm line-clamp-2">{entry.remarks}</div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setIsHistoryModalOpen(true)}
-                          className="p-2 hover:bg-accent rounded-xl text-muted-foreground hover:text-primary transition-colors"
-                          title="View History"
-                        >
-                          <EyeIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteShipment(entry._id, entry.shipmentIndex)}
-                          className="p-2 hover:bg-destructive/10 rounded-xl text-destructive hover:text-destructive transition-colors"
-                          title="Delete"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="text-right font-mono text-sm">{entry.totalQuantity ?? '—'}</td>
+                      <td className="text-right font-mono text-sm text-emerald-600 font-semibold">
+                        {entry.quantityShipped ?? 0}
+                      </td>
+                      <td className="text-right font-mono text-sm">
+                        {(entry.quantityRemaining ?? 0) > 0
+                          ? <span className="font-bold text-amber-600">{entry.quantityRemaining}</span>
+                          : <span className="text-muted-foreground">0</span>}
+                      </td>
+                      <td>
+                        <span className={`badge ${PRIORITY_BADGE[entry.priority] || 'badge-neutral'}`}>
+                          {entry.priority || '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${entry.status === 'Shipped' ? 'badge-success' : 'badge-warning'}`}>
+                          {entry.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          {entry.status !== 'Shipped' && (
+                            <button onClick={() => setShipModal(entry)}
+                              className="flex items-center gap-1 text-xs text-primary hover:underline font-semibold">
+                              <PlusIcon className="w-3.5 h-3.5" /> Add
+                            </button>
+                          )}
+                          {entry.shipmentEntries?.length > 0 && (
+                            <button
+                              onClick={() => setExpandedId(expandedId === entry._id ? null : entry._id)}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                              {entry.shipmentEntries.length}×
+                              {expandedId === entry._id
+                                ? <ChevronUpIcon className="w-3 h-3" />
+                                : <ChevronDownIcon className="w-3 h-3" />}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex justify-end">
+                          <button onClick={() => handleDelete(entry._id)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors">
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {expandedId === entry._id && entry.shipmentEntries?.map((se, idx) => (
+                      <tr key={`${entry._id}-${idx}`} className="bg-muted/20">
+                        <td />
+                        <td colSpan={3} className="py-2 text-xs text-muted-foreground">
+                          <span className="font-semibold text-foreground">Shipment {idx + 1}:</span>{' '}
+                          {se.quantityShipped} units
+                        </td>
+                        <td className="text-xs text-muted-foreground py-2">
+                          {se.dateOfShipping ? new Date(se.dateOfShipping).toLocaleDateString() : '—'}
+                        </td>
+                        <td colSpan={5} className="text-xs text-muted-foreground py-2">
+                          {se.remarks || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </>
                 ))}
               </tbody>
             </table>
           </div>
-          
-          {filteredShippingEntries.length === 0 && !loading && (
-            <div className="text-center py-20">
-              <TruckIcon className="w-20 h-20 text-muted-foreground mx-auto mb-6" />
-              <h3 className="text-2xl font-bold text-foreground mb-3">No shipping entries</h3>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Click "Sync Data" to import pending items from Purchase and Import trackers.
+
+          {!entries.length && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mb-4">
+                <TruckIcon className="w-7 h-7 text-violet-500" />
+              </div>
+              <p className="font-semibold text-foreground">No shipping entries</p>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
+                Click Sync Data to pull in purchased and imported items.
               </p>
-              <button
-                onClick={syncWithImportsPurchases}
-                disabled={syncing}
-                className="bg-primary text-primary-foreground px-8 py-3 rounded-xl hover:bg-primary/90 font-semibold shadow-lg disabled:opacity-50 transition-all"
-              >
-                {syncing ? 'Syncing...' : 'Sync Data'}
+              <button onClick={handleSync} disabled={syncing} className="btn btn-primary text-sm">
+                <ArrowPathIcon className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing…' : 'Sync Now'}
               </button>
             </div>
           )}
         </div>
-
-        {/* Shipment Modal */}
-        {isShipmentModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="glass-card max-w-md w-full">
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-4">Create Shipment</h3>
-                <form onSubmit={handleShipment} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Quantity to Ship</label>
-                    <input
-                      type="number"
-                      value={shipmentData.quantityShipped}
-                      onChange={(e) => setShipmentData({ ...shipmentData, quantityShipped: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Date</label>
-                    <input
-                      type="date"
-                      value={shipmentData.dateOfShipping}
-                      onChange={(e) => setShipmentData({ ...shipmentData, dateOfShipping: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Remarks (Optional)</label>
-                    <textarea
-                      value={shipmentData.remarks}
-                      onChange={(e) => setShipmentData({ ...shipmentData, remarks: e.target.value })}
-                      rows="3"
-                      className="w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary resize-vertical"
-                    />
-                  </div>
-                  <div className="flex gap-3 pt-2">
-                    <button type="submit" className="btn btn-primary flex-1">
-                      Create Shipment
-                    </button>
-                    <button type="button" onClick={closeShipmentModal} className="btn btn-secondary flex-1">
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* History Modal */}
-        {isHistoryModalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="glass-card max-w-lg w-full max-h-[70vh] overflow-y-auto">
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-4">Shipment History</h3>
-                <p className="text-sm text-muted-foreground mb-6">History view coming soon...</p>
-                <div className="flex justify-end">
-                  <button onClick={() => setIsHistoryModalOpen(false)} className="btn btn-secondary">
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* ── Shipment Modal ── */}
+      {shipModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-base font-bold text-foreground">Record Shipment</h2>
+              <button onClick={() => setShipModal(null)}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors">
+                <XMarkIcon className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            <div className="px-6 py-3 bg-muted/30">
+              <p className="text-sm font-semibold text-foreground truncate">{shipModal.itemDescription}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {shipModal.quantityShipped} shipped · <span className="text-amber-600 font-semibold">{shipModal.quantityRemaining} remaining</span>
+              </p>
+            </div>
+
+            <form onSubmit={handleAddShipment} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">
+                  Quantity to Ship <span className="text-red-500">*</span>
+                </label>
+                <input type="number" required min="1" max={shipModal.quantityRemaining}
+                  value={shipForm.quantityShipped}
+                  onChange={e => setShipForm(f => ({ ...f, quantityShipped: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Date</label>
+                <input type="date" value={shipForm.dateOfShipping}
+                  onChange={e => setShipForm(f => ({ ...f, dateOfShipping: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Remarks</label>
+                <textarea rows={2} value={shipForm.remarks}
+                  onChange={e => setShipForm(f => ({ ...f, remarks: e.target.value }))}
+                  placeholder="Optional notes…"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+              </div>
+              <div className="flex gap-3">
+                <button type="submit" className="btn btn-primary flex-1">Record Shipment</button>
+                <button type="button" onClick={() => setShipModal(null)} className="btn btn-secondary flex-1">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

@@ -61,11 +61,11 @@ export async function GET(req) {
     const totalPurchases = purchases.length;
     const totalPurchaseAmount = purchases.reduce((sum, p) => sum + (p.totalInAED || 0), 0);
     const purchasedCount = purchases.filter(p => p.status === 'Purchased').length;
-    const quotationCount = purchases.filter(p => p.status === 'Quotation').length;
+    const toPurchaseCount = purchases.filter(p => p.status === 'To Purchase').length;
 
     // Calculate pending statistics (only active pending/received)
     const totalPending = pending.length;
-    const urgentPending = pending.filter(p => p.priority === 'Urgent').length;
+    const urgentPending = pending.filter(p => p.priority === 'Urgent' || p.priority === 'Critical').length;
     const receivedPending = pending.filter(p => p.status === 'Received').length;
     const pendingItems = pending.filter(p => p.status === 'Pending').length;
     // Note: Shipped items now excluded via query filter above
@@ -161,7 +161,7 @@ export async function GET(req) {
           total: totalPurchases,
           totalAmount: totalPurchaseAmount,
           purchased: purchasedCount,
-          quotations: quotationCount
+          toPurchase: toPurchaseCount,
         },
         pending: {
           total: totalPending,

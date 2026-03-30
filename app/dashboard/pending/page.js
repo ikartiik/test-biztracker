@@ -6,262 +6,207 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
 import {
-  ClockIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  XMarkIcon,
-  ArrowDownTrayIcon,
-  ExclamationTriangleIcon,
-  ArrowUpCircleIcon
+  ClockIcon, MagnifyingGlassIcon, ArrowDownTrayIcon,
+  ExclamationTriangleIcon, FireIcon,
 } from '@heroicons/react/24/outline';
 import { exportPending } from '@/lib/exportExcel';
 
-export default function PendingTracker() {
+const PRIORITY_STYLES = {
+  'Critical':   { badge: 'badge-danger',  row: 'bg-red-50/60 dark:bg-red-950/10',   dot: 'bg-red-500'    },
+  'Urgent':     { badge: 'badge-warning', row: 'bg-amber-50/60 dark:bg-amber-950/10', dot: 'bg-amber-500'  },
+  'Not Urgent': { badge: 'badge-neutral', row: '',                                  dot: 'bg-slate-400'  },
+};
+
+const STATUS_BADGE = {
+  'Pending':          'badge-warning',
+  'Received':         'badge-success',
+  'Shipped':          'badge-info',
+  'Partially Shipped':'badge-violet',
+  'Enroute':          'badge-neutral',
+};
+
+export default function PendingPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [pendingItems, setPendingItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [items,    setItems]    = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [search,   setSearch]   = useState('');
+  const [statusF,  setStatusF]  = useState('all');
+  const [priorityF,setPriorityF]= useState('all');
 
   useEffect(() => {
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-    fetchPendingItems();
-  }, [session, router]);
+    if (!session) { router.push('/login'); return; }
+    load();
+  }, [session]);
 
-  const fetchPendingItems = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await fetch('/api/pending');
-      const data = await response.json();
-      setPendingItems(data);
-    } catch (error) {
-      toast.error('Failed to load pending items');
-    } finally {
-      setLoading(false);
-    }
+      const res  = await fetch('/api/pending');
+      const data = await res.json();
+      setItems(Array.isArray(data) ? data : []);
+    } catch { toast.error('Failed to load pending items'); }
+    finally { setLoading(false); }
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'Critical': return 'bg-red-100 text-red-800 border-red-300';
-      case 'Urgent': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      default: return 'bg-green-100 text-green-800 border-green-300';
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Received': return 'bg-emerald-100 text-emerald-800';
-      case 'Pending': return 'bg-amber-100 text-amber-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const filteredPendingItems = pendingItems.filter(item => {
-    const matchesSearch = item.itemDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.vendorName.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || item.priority === priorityFilter;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
+  const filtered = items.filter(item => {
+    if (statusF   !== 'all' && item.status   !== statusF)   return false;
+    if (priorityF !== 'all' && item.priority !== priorityF) return false;
+    if (search && !item.itemDescription?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
   });
 
-  const totalQtyPending = pendingItems.reduce((sum, p) => sum + (p.qtyPending || 0), 0);
-  const urgentCount = pendingItems.filter(p => p.priority === 'Urgent').length;
-  const criticalCount = pendingItems.filter(p => p.priority === 'Critical').length;
+  const totalQty    = items.reduce((s, i) => s + (i.qtyPending || 0), 0);
+  const urgentCount = items.filter(i => i.priority === 'Urgent').length;
+  const criticalCount = items.filter(i => i.priority === 'Critical').length;
 
-  if (loading) return <div className="p-8 text-center">Loading pending items...</div>;
-  if (!session) return null;
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm font-medium">Loading…</span>
+      </div>
+    </div>
+  );
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="space-y-5">
+
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Pending Tracker</h1>
-            <p className="text-muted-foreground mt-2">Track items awaiting action ({pendingItems.length} total)</p>
+            <h1 className="text-2xl font-bold text-foreground">Pending Tracker</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {items.length} items · {totalQty} units pending
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => exportPending(filteredPendingItems)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
-              disabled={filteredPendingItems.length === 0}
-            >
-              <ArrowDownTrayIcon className="w-4 h-4" />
-              Export
-            </button>
-          </div>
+          <button onClick={() => exportPending(filtered)} disabled={!filtered.length}
+            className="btn btn-ghost text-sm flex-shrink-0">
+            <ArrowDownTrayIcon className="w-4 h-4" /> Export
+          </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-amber-100 rounded-xl">
-                <ClockIcon className="w-6 h-6 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Pending Quantity</p>
-              </div>
+        {/* ── Stat cards ── */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="stat-card flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+              <ClockIcon className="w-5 h-5 text-blue-600" />
             </div>
-            <div className="text-3xl font-bold text-foreground">{totalQtyPending}</div>
+            <div>
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Total Qty</p>
+              <p className="text-2xl font-black text-foreground leading-tight">{totalQty}</p>
+            </div>
           </div>
-
-          <div className="glass-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-yellow-100 rounded-xl">
-                <ExclamationTriangleIcon className="w-6 h-6 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Urgent Items</p>
-              </div>
+          <div className="stat-card flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+              <ExclamationTriangleIcon className="w-5 h-5 text-amber-600" />
             </div>
-            <div className="text-3xl font-bold text-foreground">{urgentCount}</div>
+            <div>
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Urgent</p>
+              <p className="text-2xl font-black text-amber-600 leading-tight">{urgentCount}</p>
+            </div>
           </div>
-
-          <div className="glass-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-red-100 rounded-xl">
-                <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Critical Items</p>
-              </div>
+          <div className="stat-card flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+              <FireIcon className="w-5 h-5 text-red-600" />
             </div>
-            <div className="text-3xl font-bold text-foreground">{criticalCount}</div>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="glass-card p-6">
-          <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
-            <div className="relative flex-1">
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search by item or vendor..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
-              />
-            </div>
-            <div className="flex gap-3">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="all">All Status</option>
-                <option value="Pending">Pending</option>
-                <option value="Received">Received</option>
-              </select>
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                <option value="all">All Priority</option>
-                <option value="Urgent">Urgent</option>
-                <option value="Critical">Critical</option>
-              </select>
+            <div>
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Critical</p>
+              <p className="text-2xl font-black text-red-600 leading-tight">{criticalCount}</p>
             </div>
           </div>
         </div>
 
-        {/* Main Table */}
+        {/* ── Filters ── */}
+        <div className="glass-card p-4 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input type="text" placeholder="Search items…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                         focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <select value={statusF} onChange={e => setStatusF(e.target.value)}
+            className="px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                       focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="all">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Received">Received</option>
+            <option value="Shipped">Shipped</option>
+            <option value="Partially Shipped">Partially Shipped</option>
+            <option value="Enroute">Enroute</option>
+          </select>
+          <select value={priorityF} onChange={e => setPriorityF(e.target.value)}
+            className="px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                       focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="all">All Priority</option>
+            <option value="Critical">Critical</option>
+            <option value="Urgent">Urgent</option>
+            <option value="Not Urgent">Not Urgent</option>
+          </select>
+        </div>
+
+        {/* ── Table ── */}
         <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="tracker-table">
               <thead>
-                <tr className="border-t border-border">
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Item Description
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Vendor
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Source
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Priority
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Qty Pending
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </th>
+                <tr>
+                  <th>SR No</th>
+                  <th>Item Description</th>
+                  <th>Shipment</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th style={{textAlign:'right'}}>Qty Pending</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {filteredPendingItems.map((item) => (
-                  <tr key={item._id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-foreground">{item.itemDescription}</div>
-                      <div className="text-sm text-muted-foreground">{item.category}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-medium">{item.vendorName}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                        item.source === 'Purchase' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        {item.source}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.status)}`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getPriorityColor(item.priority)}`}>
-                        {item.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="font-mono font-semibold text-lg text-primary">
-                        {item.qtyPending}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm">
-                      <button
-                        onClick={() => router.push(`/dashboard/shipping?pending=${item._id}`)}
-                        className="text-primary hover:underline flex items-center gap-1 justify-end"
-                      >
-                        Ship Items
-                        <ArrowUpCircleIcon className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+              <tbody>
+                {filtered.map(item => {
+                  const ps = PRIORITY_STYLES[item.priority] || PRIORITY_STYLES['Not Urgent'];
+                  return (
+                    <tr key={item._id} className={ps.row}>
+                      <td className="font-mono text-xs text-muted-foreground">{item.srNo}</td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${ps.dot}`} />
+                          <span className="font-medium text-foreground">{item.itemDescription}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge ${item.shipment === 'Local Purchase' ? 'badge-info' : 'badge-neutral'}`}>
+                          {item.shipment}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${ps.badge}`}>{item.priority}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${STATUS_BADGE[item.status] || 'badge-neutral'}`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td style={{textAlign:'right'}}>
+                        <span className="text-lg font-black text-primary">{item.qtyPending}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-          
-          {filteredPendingItems.length === 0 && !loading && (
-            <div className="text-center py-20">
-              <ClockIcon className="w-20 h-20 text-muted-foreground mx-auto mb-6" />
-              <h3 className="text-2xl font-bold text-foreground mb-3">No pending items</h3>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                All items have been processed or shipped. Sync data from Purchase/Import trackers to see new pending items.
+
+          {!filtered.length && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center mb-4">
+                <ClockIcon className="w-7 h-7 text-amber-500" />
+              </div>
+              <p className="font-semibold text-foreground">No pending items</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {search || statusF !== 'all' || priorityF !== 'all'
+                  ? 'Try adjusting your filters.'
+                  : 'Items created from purchases will appear here.'}
               </p>
-              <button
-                onClick={fetchPendingItems}
-                className="bg-primary text-primary-foreground px-8 py-3 rounded-xl hover:bg-primary/90 font-semibold"
-              >
-                Refresh Data
-              </button>
             </div>
           )}
         </div>

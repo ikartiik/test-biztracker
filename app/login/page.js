@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { LockClosedIcon, UserIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { LockClosedIcon, UserIcon } from '@heroicons/react/24/outline';
 
 export default function Login() {
   const [credentials, setCredentials] = useState({ username: '', password: '' });
@@ -14,20 +14,18 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
     try {
       const result = await signIn('credentials', {
         username: credentials.username,
         password: credentials.password,
         redirect: false,
       });
-
       if (result.error) {
         toast.error('Invalid username or password');
       } else {
         router.push('/dashboard');
       }
-    } catch (error) {
+    } catch {
       toast.error('Login failed. Please try again.');
     } finally {
       setLoading(false);
@@ -36,109 +34,134 @@ export default function Login() {
 
   const createAdmin = async () => {
     try {
-      const response = await fetch('/api/seed', { method: 'POST' });
-      const data = await response.json();
-      
-      if (response.ok) {
+      const res = await fetch('/api/seed', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
         toast.success('Admin created — username: admin / password: admin123');
       } else {
         toast.error(data.error || data.message);
       }
-    } catch (error) {
+    } catch {
       toast.error('Error creating admin');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-40 left-40 w-80 h-80 bg-purple-500/10 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-      </div>
+    <div className="min-h-screen flex">
 
-      <div className="relative w-full max-w-md">
-        {/* Logo / brand */}
-        <div className="flex flex-col items-center space-y-3 mb-8">
-          <div className="p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20">
-            <SparklesIcon className="w-12 h-12 text-primary" />
+      {/* Left panel — branding (desktop only) */}
+      <div className="hidden lg:flex lg:w-1/2 bg-slate-900 flex-col items-center justify-center p-12 relative overflow-hidden">
+        {/* Subtle background circles */}
+        <div className="absolute top-1/4 -left-16 w-72 h-72 bg-blue-600/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-16 w-72 h-72 bg-indigo-600/20 rounded-full blur-3xl" />
+
+        <div className="relative text-center">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
+            <span className="text-white text-3xl font-black">B</span>
           </div>
-          <div className="text-center">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
-              BizTracker
-            </h1>
-            <p className="text-white/60 text-sm mt-1 tracking-wide">Track your business operations</p>
+          <h1 className="text-5xl font-black text-white tracking-tight mb-4">BizTracker</h1>
+          <p className="text-slate-400 text-lg leading-relaxed max-w-xs">
+            All your business operations,<br />in one clean dashboard.
+          </p>
+
+          <div className="mt-12 grid grid-cols-3 gap-6 text-center">
+            {[
+              { label: 'Purchases',  value: 'Track' },
+              { label: 'Shipping',   value: 'Monitor' },
+              { label: 'Expenses',   value: 'Manage' },
+            ].map((item) => (
+              <div key={item.label} className="bg-slate-800/60 rounded-xl px-4 py-4 border border-slate-700/50">
+                <p className="text-white font-bold text-sm">{item.value}</p>
+                <p className="text-slate-500 text-xs mt-0.5">{item.label}</p>
+              </div>
+            ))}
           </div>
         </div>
+      </div>
 
-        <div className="glass-card">
-          {/* Login form */}
-          <form onSubmit={handleSubmit} className="space-y-6 p-8">
+      {/* Right panel — login form */}
+      <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-6">
+        {/* Mobile-only brand */}
+        <div className="lg:hidden flex flex-col items-center mb-8">
+          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-3 shadow-lg">
+            <span className="text-white text-xl font-black">B</span>
+          </div>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white">BizTracker</h1>
+        </div>
+
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Sign in</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Enter your credentials to continue</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Username */}
             <div>
-              <label className="block text-sm font-semibold text-white mb-3">
+              <label htmlFor="username" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                 Username
               </label>
               <div className="relative">
-                <UserIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-white/50" />
+                <UserIcon className="w-4.5 h-4.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                  style={{ width: '1.125rem', height: '1.125rem' }} />
                 <input
                   id="username"
                   name="username"
                   type="text"
                   required
+                  autoComplete="username"
                   value={credentials.username}
                   onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                  className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="Enter your username"
+                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                  placeholder="Enter username"
                 />
               </div>
             </div>
 
+            {/* Password */}
             <div>
-              <label className="block text-sm font-semibold text-white mb-3">
+              <label htmlFor="password" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                 Password
               </label>
               <div className="relative">
-                <LockClosedIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-white/50" />
+                <LockClosedIcon className="w-4.5 h-4.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                  style={{ width: '1.125rem', height: '1.125rem' }} />
                 <input
                   id="password"
                   name="password"
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={credentials.password}
                   onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-                  className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                  placeholder="Enter your password"
+                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                  placeholder="Enter password"
                 />
               </div>
             </div>
 
+            {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 text-primary-foreground text-lg font-bold py-4 px-6 rounded-2xl transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold py-2.5 px-4 rounded-lg transition-all shadow-sm hover:shadow-md text-sm mt-2"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 
-          <div className="p-8 pt-0 space-y-4">
+          <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
             <button
               onClick={createAdmin}
               disabled={loading}
-              className="w-full border border-white/20 bg-white/5 hover:bg-white/10 text-white py-3 px-6 rounded-xl transition-all font-medium flex items-center justify-center gap-2"
+              className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm py-2.5 px-4 rounded-lg transition-all font-medium"
             >
-              Create Admin User (Development)
+              Create admin account
             </button>
-            <div className="text-xs text-white/40 text-center">
-              Default: admin / admin123
-            </div>
+            <p className="text-xs text-slate-400 text-center mt-3">
+              Default credentials: admin / admin123
+            </p>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 text-white/30 text-xs">
-          © 2024 BizTracker. All rights reserved.
         </div>
       </div>
     </div>

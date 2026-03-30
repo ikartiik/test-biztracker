@@ -1,640 +1,503 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
 import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  XMarkIcon,
-  DocumentArrowUpIcon,
-  CloudArrowUpIcon,
-  FunnelIcon,
-  MagnifyingGlassIcon,
-  ClockIcon,
-  CheckIcon,
-  ArrowDownTrayIcon,
-  ChevronDownIcon,
-  ChevronUpIcon
+  PlusIcon, PencilIcon, TrashIcon, XMarkIcon,
+  MagnifyingGlassIcon, ArrowDownTrayIcon,
+  DocumentArrowUpIcon, ChevronDownIcon, ChevronUpIcon,
 } from '@heroicons/react/24/outline';
 import { exportImports } from '@/lib/exportExcel';
 
-export default function ImportTracker() {
+const PAYMENT_MODES = [
+  { value: 'cash',     label: 'Cash'     },
+  { value: 'mashreq',  label: 'Mashreq'  },
+  { value: 'hsbc',     label: 'HSBC'     },
+  { value: 'crown',    label: 'Crown FZ' },
+  { value: 'sasco',    label: 'SASCO FZ' },
+  { value: 'other_fz', label: 'Other FZ' },
+];
+
+const empty = {
+  vendorId: '', vendorName: '', country: '',
+  invoiceNumber: '', trackingNumber: '', trackingLink: '',
+  dateOfShipping: '', dateOfReceiving: '',
+  amountDutyPaid: '', paymentMode: 'cash',
+  status: 'Enroute',
+  items: [{ itemDescription: '', quantity: 1 }],
+};
+
+export default function ImportPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const fileInputRef = useRef(null);
-  
-  const [imports, setImports] = useState([]);
-  const [filteredImports, setFilteredImports] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [expandedImportId, setExpandedImportId] = useState(null);
-  const [items, setItems] = useState([{ itemDescription: '', quantity: 1 }]);
-  const [filterVisible, setFilterVisible] = useState(false);
-  const [filters, setFilters] = useState({
-    search: '',
-    vendor: 'all',
-    status: 'all',
-    startDate: '',
-    endDate: ''
-  });
-  const [formData, setFormData] = useState({
-    vendor: '',
-    paymentMethod: 'cash',
-    amountDutyPaid: '',
-    status: 'Purchased'
-  });
 
-  const paymentOptions = [
-    { value: 'mashreq', label: 'Mashreq Bank' },
-    { value: 'hsbc', label: 'HSBC Bank' },
-    { value: 'kar_fab', label: 'Kar FAB' },
-    { value: 'kar_liv', label: 'Kar Liv' },
-    { value: 'kar_mashreq', label: 'Kar Mashreq' },
-    { value: 'crown', label: 'Crown' },
-    { value: 'sasco', label: 'SASCO' },
-    { value: 'other_fz', label: 'Other FZ' },
-    { value: 'cash', label: 'Cash' }
-  ];
+  const [imports,   setImports]   = useState([]);
+  const [vendors,   setVendors]   = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing,   setEditing]   = useState(null);
+  const [expanded,  setExpanded]  = useState(null);
+  const [search,    setSearch]    = useState('');
+  const [statusF,   setStatusF]   = useState('all');
+  const [form,      setForm]      = useState(empty);
 
   useEffect(() => {
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-    fetchData();
-  }, [session, router]);
+    if (!session) { router.push('/login'); return; }
+    load();
+  }, [session]);
 
-  // Apply filters whenever imports, filters, or activeTab change
-  useEffect(() => {
-    applyFilters();
-  }, [imports, filters]);
-
-  const fetchData = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      await Promise.all([
-        fetchImports(),
-        fetchVendors()
-      ]);
-    } catch (error) {
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
+      const [iRes, vRes] = await Promise.all([fetch('/api/import'), fetch('/api/vendors')]);
+      const [i, v]       = await Promise.all([iRes.json(), vRes.json()]);
+      setImports(Array.isArray(i) ? i : []);
+      setVendors(Array.isArray(v) ? v : []);
+    } catch { toast.error('Failed to load data'); }
+    finally { setLoading(false); }
+  };
+
+  const filtered = imports.filter(imp => {
+    if (statusF !== 'all' && imp.status !== statusF) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!imp.vendorName?.toLowerCase().includes(q) &&
+          !imp.invoiceNumber?.toLowerCase().includes(q) &&
+          !(imp.items||[]).some(it => it.itemDescription?.toLowerCase().includes(q))) return false;
     }
-  };
+    return true;
+  });
 
-  const fetchImports = async () => {
-    const response = await fetch('/api/import');
-    const data = await response.json();
-    setImports(data);
-  };
-
-  const fetchVendors = async () => {
-    const response = await fetch('/api/vendors');
-    const data = await response.json();
-    setVendors(data);
-  };
-
-  const downloadCSVFormat = () => {
-    const csvContent = 'item_description,quantity\nSample Item 1,5\nSample Item 2,3\n';
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'import-template.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const applyFilters = useCallback(() => {
-    let filtered = [...imports];
-    
-    if (filters.search) {
-      filtered = filtered.filter(i => 
-        i.vendor?.toLowerCase().includes(filters.search.toLowerCase()) ||
-        i.items.some(item => 
-          item.itemDescription.toLowerCase().includes(filters.search.toLowerCase())
-        )
-      );
-    }
-    
-    if (filters.vendor !== 'all') {
-      filtered = filtered.filter(i => i.vendor === filters.vendor);
-    }
-    
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(i => i.status === filters.status);
-    }
-    
-    if (filters.startDate && filters.endDate) {
-      const start = new Date(filters.startDate);
-      const end = new Date(filters.endDate);
-      filtered = filtered.filter(i => {
-        const date = new Date(i.createdAt);
-        return date >= start && date <= end;
-      });
-    }
-    
-    setFilteredImports(filtered);
-  }, [imports, filters]);
-
-  const addItem = () => {
-    setItems([...items, { itemDescription: '', quantity: 1 }]);
-  };
-
-  const updateItem = (index, field, value) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setItems(newItems);
-  };
-
-  const removeItem = (index) => {
-    if (items.length > 1) {
-      setItems(items.filter((_, i) => i !== index));
-    }
-  };
+  const enrouteCount  = imports.filter(i => i.status === 'Enroute').length;
+  const receivedCount = imports.filter(i => i.status === 'Received').length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const submitData = {
-        ...formData,
-        items: items.filter(item => item.itemDescription.trim())
+      const payload = {
+        vendor:          form.vendorId || undefined,
+        vendorName:      form.vendorName,
+        country:         form.country,
+        invoiceNumber:   form.invoiceNumber,
+        trackingNumber:  form.trackingNumber,
+        trackingLink:    form.trackingLink,
+        dateOfShipping:  form.dateOfShipping || undefined,
+        dateOfReceiving: form.dateOfReceiving || undefined,
+        amountDutyPaid:  parseFloat(form.amountDutyPaid) || 0,
+        paymentMode:     form.paymentMode,
+        status:          form.status,
+        items:           form.items.filter(it => it.itemDescription.trim()),
       };
-      
-      const url = editingItem ? `/api/import?id=${editingItem._id}` : '/api/import';
-      const method = editingItem ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
+      const url = editing ? `/api/import?id=${editing._id}` : '/api/import';
+      const res = await fetch(url, {
+        method:  editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitData),
+        body:    JSON.stringify(payload),
       });
-      
-      if (response.ok) {
-        // Auto-create expense for duty payment
-        if (submitData.amountDutyPaid > 0) {
+      if (res.ok) {
+        if (!editing && payload.amountDutyPaid > 0) {
           await fetch('/api/expense', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              category: 'CUSTOMS DUTY',
-              type: 'expense',
-              account: submitData.paymentMethod,
-              amount: submitData.amountDutyPaid,
-              remark: `Duty for Import ${submitData.vendor}`
+              srNo: `DUTY-${Date.now()}`, category: 'CUSTOMS DUTY',
+              type: 'expense', account: payload.paymentMode,
+              amount: payload.amountDutyPaid,
+              remark: `Duty for import from ${payload.vendorName}`,
             }),
           });
-          toast.success('Expense entry created for duty payment');
         }
-        
-        if (submitData.status === 'Received') {
-          toast.success('Items added to pending tracker');
-        }
-        
-        fetchData();
-        closeModal();
+        toast.success(editing ? 'Import updated' : 'Import created');
+        load(); closeModal();
       } else {
-        toast.error('Failed to save import');
+        const d = await res.json();
+        toast.error(d.error || 'Failed to save');
       }
-    } catch (error) {
-      toast.error('Network error');
-    }
+    } catch { toast.error('Network error'); }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this import? This will also delete all related entries from Pending, Shipping, and Expense trackers.')) {
-      try {
-        const response = await fetch(`/api/import?id=${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          toast.success('Import deleted successfully');
-          fetchData();
-        }
-      } catch (error) {
-        toast.error('Error deleting import');
-      }
-    }
+    if (!window.confirm('Delete this import?')) return;
+    const res = await fetch(`/api/import?id=${id}`, { method: 'DELETE' });
+    if (res.ok) { toast.success('Deleted'); load(); }
+    else toast.error('Delete failed');
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingItem(null);
-    setItems([{ itemDescription: '', quantity: 1 }]);
-    setFormData({ vendor: '', paymentMethod: 'cash', amountDutyPaid: '', status: 'Purchased' });
-  };
-
-  const openEditModal = (item) => {
-    setEditingItem(item);
-    setItems(item.items || [{ itemDescription: '', quantity: 1 }]);
-    setFormData({
-      vendor: item.vendor || '',
-      paymentMethod: item.paymentMethod || 'cash',
-      amountDutyPaid: item.amountDutyPaid || '',
-      status: item.status || 'Purchased'
+  const openEdit = (item) => {
+    setEditing(item);
+    setForm({
+      vendorId:        item.vendor?._id || '',
+      vendorName:      item.vendorName  || item.vendor?.company || '',
+      country:         item.country     || '',
+      invoiceNumber:   item.invoiceNumber  || '',
+      trackingNumber:  item.trackingNumber || '',
+      trackingLink:    item.trackingLink   || '',
+      dateOfShipping:  item.dateOfShipping  ? item.dateOfShipping.slice(0,10)  : '',
+      dateOfReceiving: item.dateOfReceiving ? item.dateOfReceiving.slice(0,10) : '',
+      amountDutyPaid:  item.amountDutyPaid  || '',
+      paymentMode:     item.paymentMode     || 'cash',
+      status:          item.status          || 'Enroute',
+      items:           item.items?.length ? item.items : [{ itemDescription: '', quantity: 1 }],
     });
-    setIsModalOpen(true);
+    setModalOpen(true);
   };
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
-  if (!session) return null;
+  const closeModal = () => { setModalOpen(false); setEditing(null); setForm(empty); };
+  const addItem    = () => setForm(f => ({ ...f, items: [...f.items, { itemDescription: '', quantity: 1 }] }));
+  const removeItem = (i) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
+  const updateItem = (i, field, val) => setForm(f => ({
+    ...f, items: f.items.map((it, idx) => idx === i ? { ...it, [field]: val } : it),
+  }));
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm font-medium">Loading…</span>
+      </div>
+    </div>
+  );
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="space-y-5">
+
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Import Tracker</h1>
-            <p className="mt-2 text-gray-600">Manage and track all imports with automated expense and pending tracking</p>
+            <h1 className="text-2xl font-bold text-foreground">Import Tracker</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {enrouteCount} en route · {receivedCount} received
+            </p>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={downloadCSVFormat}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
-            >
-              <ArrowDownTrayIcon className="w-4 h-4" />
-              Download Template
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={() => exportImports(filtered)} disabled={!filtered.length}
+              className="btn btn-ghost text-sm">
+              <ArrowDownTrayIcon className="w-4 h-4" /> Export
             </button>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 flex items-center gap-2 font-semibold shadow-lg transition-all"
-            >
-              <PlusIcon className="w-5 h-5" />
-              New Import
+            <button onClick={() => setModalOpen(true)} className="btn btn-primary text-sm">
+              <PlusIcon className="w-4 h-4" /> New Import
             </button>
           </div>
         </div>
 
-        {/* Filter Panel */}
-        {filterVisible && (
-          <div className="glass-card p-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                <input
-                  type="text"
-                  placeholder="Vendor or item name..."
-                  value={filters.search}
-                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Vendor</label>
-                <select
-                  value={filters.vendor}
-                  onChange={(e) => setFilters({ ...filters, vendor: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">All Vendors</option>
-                  {vendors.map((vendor) => (
-                    <option key={vendor._id} value={vendor.company}>
-                      {vendor.company}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={filters.status}
-                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">All Status</option>
-                  <option value="Purchased">Purchased</option>
-                  <option value="Received">Received</option>
-                  <option value="Enroute">Enroute</option>
-                </select>
-              </div>
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">From</label>
-                  <input
-                    type="date"
-                    value={filters.startDate}
-                    onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">To</label>
-                  <input
-                    type="date"
-                    value={filters.endDate}
-                    onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </div>
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Total</p>
+            <p className="text-2xl font-black text-foreground">{imports.length}</p>
           </div>
-        )}
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">En Route</p>
+            <p className="text-2xl font-black text-blue-600">{enrouteCount}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Received</p>
+            <p className="text-2xl font-black text-emerald-600">{receivedCount}</p>
+          </div>
+        </div>
 
-        {/* Main Table */}
+        {/* ── Filters ── */}
+        <div className="glass-card p-4 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input type="text" placeholder="Search vendor, invoice, or item…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                         focus:outline-none focus:ring-2 focus:ring-primary" />
+          </div>
+          <select value={statusF} onChange={e => setStatusF(e.target.value)}
+            className="px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                       focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="all">All Status</option>
+            <option value="Enroute">Enroute</option>
+            <option value="Received">Received</option>
+          </select>
+        </div>
+
+        {/* ── Table ── */}
         <div className="glass-card overflow-hidden">
-          <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-10">
-            <div className="flex items-center justify-between p-6">
-              <div className="flex items-center gap-3">
-                <h2 className="text-xl font-bold text-foreground">Imports ({filteredImports.length})</h2>
-                <button
-                  onClick={() => setFilterVisible(!filterVisible)}
-                  className="p-2 rounded-xl hover:bg-accent transition-colors"
-                >
-                  <FunnelIcon className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </div>
-              <button
-                onClick={() => exportImports(filteredImports)}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors"
-                disabled={filteredImports.length === 0}
-              >
-                <ArrowDownTrayIcon className="w-4 h-4" />
-                Export
-              </button>
-            </div>
-          </div>
-
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="tracker-table">
               <thead>
-                <tr className="border-t border-border">
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Vendor
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Duty Paid
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Items
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Actions
-                  </th>
+                <tr>
+                  <th>Serial</th>
+                  <th>Vendor</th>
+                  <th>Invoice</th>
+                  <th>Country</th>
+                  <th>Ship Date</th>
+                  <th style={{textAlign:'right'}}>Duty (AED)</th>
+                  <th>Items</th>
+                  <th>Status</th>
+                  <th style={{textAlign:'right'}}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {filteredImports.map((importItem) => (
-                  <tr key={importItem._id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-foreground">{importItem.vendor}</div>
-                      <div className="text-sm text-muted-foreground">{importItem.paymentMethod}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                        importItem.status === 'Received' ? 'bg-emerald-100 text-emerald-800' :
-                        importItem.status === 'Enroute' ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {importItem.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                      AED {importItem.amountDutyPaid?.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                      {new Date(importItem.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => setExpandedImportId(expandedImportId === importItem._id ? null : importItem._id)}
-                        className="text-sm text-primary hover:underline flex items-center gap-1 mx-auto"
-                      >
-                        {importItem.items?.length || 0} items
-                        {expandedImportId === importItem._id ? 
-                          <ChevronUpIcon className="w-4 h-4" /> : 
-                          <ChevronDownIcon className="w-4 h-4" />
-                        }
-                      </button>
-                      {expandedImportId === importItem._id && (
-                        <div className="mt-2 space-y-1 bg-muted/50 p-2 rounded-lg">
-                          {importItem.items.map((item, index) => (
-                            <div key={index} className="text-xs text-muted-foreground truncate">
-                              • {item.itemDescription} ({item.quantity})
-                            </div>
-                          ))}
+              <tbody>
+                {filtered.map(imp => (
+                  <>
+                    <tr key={imp._id}>
+                      <td className="font-mono text-xs text-muted-foreground">{imp.serialNumber || '—'}</td>
+                      <td>
+                        <p className="font-semibold text-foreground">{imp.vendorName || imp.vendor?.company}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{imp.paymentMode}</p>
+                      </td>
+                      <td className="font-mono text-sm">{imp.invoiceNumber || '—'}</td>
+                      <td className="text-sm">{imp.country || '—'}</td>
+                      <td className="text-sm text-muted-foreground">
+                        {imp.dateOfShipping ? new Date(imp.dateOfShipping).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="text-right font-mono text-sm font-semibold">
+                        {imp.amountDutyPaid > 0
+                          ? <span className="text-red-600">{imp.amountDutyPaid.toLocaleString()}</span>
+                          : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td>
+                        <button onClick={() => setExpanded(expanded === imp._id ? null : imp._id)}
+                          className="flex items-center gap-1 text-sm text-primary hover:underline font-medium">
+                          {imp.items?.length || 0} items
+                          {expanded === imp._id
+                            ? <ChevronUpIcon className="w-3.5 h-3.5" />
+                            : <ChevronDownIcon className="w-3.5 h-3.5" />}
+                        </button>
+                      </td>
+                      <td>
+                        <span className={`badge ${imp.status === 'Received' ? 'badge-success' : 'badge-info'}`}>
+                          {imp.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => openEdit(imp)} title="Edit"
+                            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors">
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDelete(imp._id)} title="Delete"
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors">
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
                         </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEditModal(importItem)}
-                          className="p-2 text-muted-foreground hover:text-primary hover:bg-accent rounded-xl transition-all"
-                          title="Edit"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(importItem._id)}
-                          className="p-2 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl transition-all"
-                          title="Delete"
-                        >
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
+
+                    {expanded === imp._id && (
+                      <tr key={`${imp._id}-exp`} className="bg-muted/20">
+                        <td colSpan={9} className="px-6 py-3">
+                          <div className="space-y-1.5">
+                            {(imp.items || []).map((item, idx) => (
+                              <div key={idx} className="flex items-center gap-3 text-sm">
+                                <span className="text-muted-foreground w-5 text-right font-mono">{idx + 1}.</span>
+                                <span className="text-foreground font-medium flex-1">{item.itemDescription}</span>
+                                <span className="text-muted-foreground text-xs">Qty: {item.quantity}</span>
+                              </div>
+                            ))}
+                            {imp.trackingNumber && (
+                              <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
+                                Tracking: <span className="font-mono">{imp.trackingNumber}</span>
+                                {imp.trackingLink && (
+                                  <a href={imp.trackingLink} target="_blank" rel="noreferrer"
+                                    className="ml-2 text-primary underline">View →</a>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </table>
           </div>
-          
-          {filteredImports.length === 0 && !loading && (
-            <div className="text-center py-12">
-              <DocumentArrowUpIcon className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">No imports found</h3>
-              <p className="text-muted-foreground mb-6">Add your first import to get started.</p>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="bg-primary text-primary-foreground px-6 py-3 rounded-xl hover:bg-primary/90 font-semibold shadow-lg transition-all"
-              >
-                Create First Import
-              </button>
+
+          {!filtered.length && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
+                <DocumentArrowUpIcon className="w-7 h-7 text-teal-500" />
+              </div>
+              <p className="font-semibold text-foreground">No imports found</p>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
+                {search || statusF !== 'all' ? 'Try adjusting your filters.' : 'Create your first import record.'}
+              </p>
+              {!search && statusF === 'all' && (
+                <button onClick={() => setModalOpen(true)} className="btn btn-primary text-sm">
+                  <PlusIcon className="w-4 h-4" /> New Import
+                </button>
+              )}
             </div>
           )}
         </div>
-
-        {/* Add/Edit Import Modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="glass-card max-w-4xl w-full max-h-[95vh] overflow-y-auto">
-              <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border p-6 z-10">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-foreground">
-                    {editingItem ? 'Edit Import' : 'New Import'}
-                  </h2>
-                  <button onClick={closeModal} className="p-2 rounded-xl hover:bg-accent">
-                    <XMarkIcon className="w-6 h-6" />
-                  </button>
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-3">Vendor</label>
-                    <input
-                      type="text"
-                      placeholder="Enter vendor name"
-                      value={formData.vendor}
-                      onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-3">Payment Method</label>
-                    <select
-                      value={formData.paymentMethod}
-                      onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary"
-                    >
-                      {paymentOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-3">Duty Amount (AED)</label>
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      value={formData.amountDutyPaid}
-                      onChange={(e) => setFormData({ ...formData, amountDutyPaid: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-3">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="Purchased">Purchased</option>
-                      <option value="Enroute">Enroute</option>
-                      <option value="Received">Received</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Items Section */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <label className="text-sm font-medium text-foreground">Items</label>
-                    <button
-                      type="button"
-                      onClick={addItem}
-                      className="text-sm text-primary hover:underline flex items-center gap-1"
-                    >
-                      + Add Item
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    {items.map((item, index) => (
-                      <div key={index} className="flex gap-3 items-end bg-muted/30 p-4 rounded-xl">
-                        <div className="flex-1">
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">
-                            Item Description
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Enter item description"
-                            value={item.itemDescription}
-                            onChange={(e) => updateItem(index, 'itemDescription', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div className="w-24">
-                          <label className="block text-xs font-medium text-muted-foreground mb-1">
-                            Quantity
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(index)}
-                          className="p-2 text-destructive hover:bg-destructive/10 rounded-lg -mt-2"
-                        >
-                          <XMarkIcon className="w-5 h-5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-6 border-t border-border">
-                  <button type="submit" className="btn btn-primary flex-1">
-                    {editingItem ? 'Update Import' : 'Create Import'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    className="btn btn-secondary flex-1"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Vendor Modal - Simplified */}
-        {isVendorModalOpen && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="glass-card max-w-md w-full">
-              <div className="p-6">
-                <h3 className="text-xl font-bold mb-4">Manage Vendors</h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Add vendors via the Vendors page for full management.
-                </p>
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => router.push('/dashboard/vendors')}
-                    className="flex-1 btn btn-primary"
-                  >
-                    Go to Vendors
-                  </button>
-                  <button 
-                    onClick={() => setIsVendorModalOpen(false)}
-                    className="flex-1 btn btn-secondary"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* ── Modal ── */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl">
+
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
+              <h2 className="text-lg font-bold text-foreground">
+                {editing ? 'Edit Import' : 'New Import'}
+              </h2>
+              <button onClick={closeModal}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors">
+                <XMarkIcon className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Vendor <span className="text-red-500">*</span>
+                  </label>
+                  <select required value={form.vendorId}
+                    onChange={e => {
+                      const v = vendors.find(x => x._id === e.target.value);
+                      setForm(f => ({ ...f, vendorId: e.target.value, vendorName: v?.company || '' }));
+                    }}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="">— Select vendor —</option>
+                    {vendors.map(v => <option key={v._id} value={v._id}>{v.company}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Country <span className="text-red-500">*</span>
+                  </label>
+                  <input type="text" required value={form.country}
+                    onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
+                    placeholder="e.g. China"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Invoice Number <span className="text-red-500">*</span>
+                  </label>
+                  <input type="text" required value={form.invoiceNumber}
+                    onChange={e => setForm(f => ({ ...f, invoiceNumber: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Tracking Number</label>
+                  <input type="text" value={form.trackingNumber}
+                    onChange={e => setForm(f => ({ ...f, trackingNumber: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Tracking Link</label>
+                <input type="url" value={form.trackingLink}
+                  onChange={e => setForm(f => ({ ...f, trackingLink: e.target.value }))}
+                  placeholder="https://…"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Date of Shipping <span className="text-red-500">*</span>
+                  </label>
+                  <input type="date" required value={form.dateOfShipping}
+                    onChange={e => setForm(f => ({ ...f, dateOfShipping: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Date of Receiving</label>
+                  <input type="date" value={form.dateOfReceiving}
+                    onChange={e => setForm(f => ({ ...f, dateOfReceiving: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Duty Amount (AED)</label>
+                  <input type="number" min="0" step="0.01" value={form.amountDutyPaid}
+                    onChange={e => setForm(f => ({ ...f, amountDutyPaid: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Payment Mode</label>
+                  <select value={form.paymentMode}
+                    onChange={e => setForm(f => ({ ...f, paymentMode: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary">
+                    {PAYMENT_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Status</label>
+                <select value={form.status}
+                  onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="Enroute">Enroute</option>
+                  <option value="Received">Received</option>
+                </select>
+              </div>
+
+              {/* Items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-foreground">Items</label>
+                  <button type="button" onClick={addItem}
+                    className="text-xs text-primary hover:underline font-semibold flex items-center gap-1">
+                    <PlusIcon className="w-3.5 h-3.5" /> Add Item
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {form.items.map((item, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <input type="text" placeholder={`Item ${idx + 1} description`}
+                        value={item.itemDescription}
+                        onChange={e => updateItem(idx, 'itemDescription', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary" />
+                      <input type="number" min="1" value={item.quantity} style={{width:'80px'}}
+                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
+                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary" />
+                      {form.items.length > 1 && (
+                        <button type="button" onClick={() => removeItem(idx)}
+                          className="p-2 rounded-lg hover:bg-red-50 text-red-500 transition-colors flex-shrink-0">
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2 border-t border-border">
+                <button type="submit" className="btn btn-primary flex-1">
+                  {editing ? 'Save Changes' : 'Create Import'}
+                </button>
+                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

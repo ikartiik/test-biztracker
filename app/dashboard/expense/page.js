@@ -1,322 +1,255 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
 import {
-  PlusIcon,
-  PencilIcon,
-  TrashIcon,
-  XMarkIcon,
-  BanknotesIcon,
-  CreditCardIcon,
-  BuildingOfficeIcon,
-  MagnifyingGlassIcon
+  PlusIcon, PencilIcon, TrashIcon, XMarkIcon,
+  MagnifyingGlassIcon, ArrowDownTrayIcon,
+  BanknotesIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon,
 } from '@heroicons/react/24/outline';
+import { exportExpenses } from '@/lib/exportExcel';
 
-export default function ExpenseTracker() {
+const CATEGORIES = [
+  'SALARY','OFFICE RENT','UTILITIES','TRANSPORT',
+  'BANK FEES','MISCELLANEOUS','PAYMENT TO FZ','INVOICE PAYMENT','CUSTOMS DUTY',
+];
+
+const ACCOUNTS = [
+  { value: 'cash',        label: 'Cash'         },
+  { value: 'mashreq',     label: 'Mashreq'      },
+  { value: 'hsbc',        label: 'HSBC'         },
+  { value: 'kar_fab',     label: 'Kar FAB'      },
+  { value: 'kar_liv',     label: 'Kar Liv'      },
+  { value: 'kar_mashreq', label: 'Kar Mashreq'  },
+  { value: 'crown',       label: 'Crown FZ'     },
+  { value: 'sasco',       label: 'SASCO FZ'     },
+  { value: 'other_fz',    label: 'Other FZ'     },
+];
+
+const emptyForm = { srNo: '', type: 'expense', category: '', account: 'cash', amount: '', remark: '' };
+
+export default function ExpensePage() {
   const { data: session } = useSession();
   const router = useRouter();
-  
-  const [expenses, setExpenses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [balances, setBalances] = useState({
-    mashreq: 0,
-    hsbc: 0,
-    kar_fab: 0,
-    kar_liv: 0,
-    kar_mashreq: 0,
-    crown: 0,
-    sasco: 0,
-    other_fz: 0,
-    cash: 0
-  });
-  const [formData, setFormData] = useState({
-    srNo: '',
-    type: 'expense',
-    category: '',
-    account: 'cash',
-    amount: '',
-    remark: ''
-  });
 
-  const categories = [
-    'SALARY',
-    'OFFICE RENT',
-    'UTILITIES',
-    'TRANSPORT',
-    'BANK FEES',
-    'MISCELLANEOUS',
-    'PAYMENT TO FZ',
-    'INVOICE PAYMENT'
-  ];
-
-  const accountOptions = [
-    { value: 'mashreq', label: 'Mashreq Bank', type: 'bank' },
-    { value: 'hsbc', label: 'HSBC Bank', type: 'bank' },
-    { value: 'kar_fab', label: 'Kar FAB', type: 'bank' },
-    { value: 'kar_liv', label: 'Kar Liv', type: 'bank' },
-    { value: 'kar_mashreq', label: 'Kar Mashreq', type: 'bank' },
-    { value: 'crown', label: 'Crown FZ', type: 'fz' },
-    { value: 'sasco', label: 'SASCO FZ', type: 'fz' },
-    { value: 'other_fz', label: 'Other FZ', type: 'fz' },
-    { value: 'cash', label: 'Cash', type: 'cash' }
-  ];
+  const [expenses,  setExpenses]  = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing,   setEditing]   = useState(null);
+  const [search,    setSearch]    = useState('');
+  const [typeF,     setTypeF]     = useState('all');
+  const [form,      setForm]      = useState(emptyForm);
 
   useEffect(() => {
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-    fetchExpenses();
-  }, [session, router]);
+    if (!session) { router.push('/login'); return; }
+    load();
+  }, [session]);
 
-  const fetchExpenses = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await fetch('/api/expense');
-      const data = await response.json();
-      setExpenses(data);
-      calculateBalances(data);
-    } catch (error) {
-      toast.error('Failed to load expenses');
-    } finally {
-      setLoading(false);
+      const res  = await fetch('/api/expense');
+      const data = await res.json();
+      setExpenses(Array.isArray(data) ? data : []);
+    } catch { toast.error('Failed to load expenses'); }
+    finally { setLoading(false); }
+  };
+
+  const filtered = expenses.filter(e => {
+    if (typeF !== 'all' && e.type !== typeF) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!e.srNo?.toLowerCase().includes(q) &&
+          !e.category?.toLowerCase().includes(q) &&
+          !e.remark?.toLowerCase().includes(q)) return false;
     }
-  };
+    return true;
+  });
 
-  const calculateBalances = (expenseData) => {
-    const newBalances = {
-      mashreq: 0,
-      hsbc: 0,
-      kar_fab: 0,
-      kar_liv: 0,
-      kar_mashreq: 0,
-      crown: 0,
-      sasco: 0,
-      other_fz: 0,
-      cash: 0
-    };
-
-    expenseData.forEach(expense => {
-      const account = expense.account || 'cash';
-      newBalances[account] = (newBalances[account] || 0) + (expense.balance || 0);
-    });
-
-    setBalances(newBalances);
-  };
-
-  const getBankTotal = () => {
-    return balances.mashreq + balances.hsbc + balances.kar_fab + balances.kar_liv + balances.kar_mashreq;
-  };
-
-  const getFZTotal = () => {
-    return balances.crown + balances.sasco + balances.other_fz;
-  };
-
-  const getCashTotal = () => {
-    return balances.cash;
-  };
-
-  const getGrandTotal = () => {
-    return Object.values(balances).reduce((sum, balance) => sum + balance, 0);
-  };
+  const totalCredit = expenses.reduce((s, e) => s + (e.creditAmount || 0), 0);
+  const totalDebit  = expenses.reduce((s, e) => s + (e.debitAmount  || 0), 0);
+  const balance     = totalCredit - totalDebit;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const url = editingItem ? `/api/expense?id=${editingItem._id}` : '/api/expense';
-      const method = editingItem ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
+      const url = editing ? `/api/expense?id=${editing._id}` : '/api/expense';
+      const res = await fetch(url, {
+        method:  editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body:    JSON.stringify(form),
       });
-      
-      if (response.ok) {
-        toast.success(editingItem ? 'Transaction updated' : 'Transaction added');
-        fetchExpenses();
-        setIsModalOpen(false);
-        setFormData({ srNo: '', type: 'expense', category: '', account: 'cash', amount: '', remark: '' });
-        setEditingItem(null);
-      } else {
-        toast.error('Failed to save transaction');
-      }
-    } catch (error) {
-      toast.error('Network error');
-    }
+      if (res.ok) {
+        toast.success(editing ? 'Updated' : 'Added');
+        load(); closeModal();
+      } else toast.error('Failed to save');
+    } catch { toast.error('Network error'); }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure?')) {
-      try {
-        const response = await fetch(`/api/expense?id=${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          toast.success('Deleted');
-          fetchExpenses();
-        }
-      } catch (error) {
-        toast.error('Delete failed');
-      }
-    }
+    if (!window.confirm('Delete this transaction?')) return;
+    const res = await fetch(`/api/expense?id=${id}`, { method: 'DELETE' });
+    if (res.ok) { toast.success('Deleted'); load(); }
+    else toast.error('Delete failed');
   };
 
-  const filteredExpenses = expenses.filter(expense => 
-    expense.srNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    expense.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    expense.remark?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const openEdit = (item) => {
+    setEditing(item);
+    setForm({ srNo: item.srNo, type: item.type, category: item.category,
+              account: item.account, amount: item.amount || '', remark: item.remark || '' });
+    setModalOpen(true);
+  };
 
-  if (loading) return <div>Loading...</div>;
+  const closeModal = () => { setModalOpen(false); setEditing(null); setForm(emptyForm); };
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm font-medium">Loading…</span>
+      </div>
+    </div>
+  );
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
+      <div className="space-y-5">
+
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Expense Tracker</h1>
-            <p className="text-muted-foreground mt-2">Track income, expenses and maintain running balances across accounts</p>
+            <h1 className="text-2xl font-bold text-foreground">Expense Tracker</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {expenses.length} transactions across all accounts
+            </p>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="btn btn-primary flex items-center gap-2"
-          >
-            <PlusIcon className="w-5 h-5" />
-            Add Transaction
-          </button>
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={() => exportExpenses(expenses)} disabled={!expenses.length}
+              className="btn btn-ghost text-sm">
+              <ArrowDownTrayIcon className="w-4 h-4" /> Export
+            </button>
+            <button onClick={() => setModalOpen(true)} className="btn btn-primary text-sm">
+              <PlusIcon className="w-4 h-4" /> Add Transaction
+            </button>
+          </div>
         </div>
 
-        {/* Balance Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="glass-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <BanknotesIcon className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Grand Total</p>
-              </div>
+        {/* ── Summary cards ── */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="stat-card flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+              <ArrowTrendingUpIcon className="w-5 h-5 text-emerald-600" />
             </div>
-            <div className="text-3xl font-bold text-foreground">
-              AED {getGrandTotal().toLocaleString()}
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Total Credit</p>
+              <p className="text-xl font-black text-emerald-600 leading-tight truncate">
+                AED {totalCredit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </p>
             </div>
           </div>
-
-          <div className="glass-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-emerald-100 rounded-lg">
-                <CreditCardIcon className="w-6 h-6 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Bank Accounts</p>
-              </div>
+          <div className="stat-card flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+              <ArrowTrendingDownIcon className="w-5 h-5 text-red-600" />
             </div>
-            <div className="text-3xl font-bold text-foreground">
-              AED {getBankTotal().toLocaleString()}
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Total Debit</p>
+              <p className="text-xl font-black text-red-600 leading-tight truncate">
+                AED {totalDebit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </p>
             </div>
           </div>
-
-          <div className="glass-card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <BuildingOfficeIcon className="w-6 h-6 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">FZ Accounts</p>
-              </div>
+          <div className="stat-card flex items-center gap-4">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0
+              ${balance >= 0 ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+              <BanknotesIcon className={`w-5 h-5 ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`} />
             </div>
-            <div className="text-3xl font-bold text-foreground">
-              AED {getFZTotal().toLocaleString()}
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Net Balance</p>
+              <p className={`text-xl font-black leading-tight truncate ${balance >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                AED {Math.abs(balance).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Transaction History */}
-        <div className="bg-card shadow-xl rounded-2xl overflow-hidden">
-          <div className="p-6 border-b border-border">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-foreground">Recent Transactions</h2>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search transactions..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-64 pl-10 pr-4 py-2 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </div>
+        {/* ── Filters ── */}
+        <div className="glass-card p-4 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input type="text" placeholder="Search by SR no, category, remark…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                         focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
-          
+          <select value={typeF} onChange={e => setTypeF(e.target.value)}
+            className="px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                       focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="all">All Types</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+        </div>
+
+        {/* ── Table ── */}
+        <div className="glass-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full tracker-table">
+            <table className="tracker-table">
               <thead>
                 <tr>
                   <th>SR No</th>
                   <th>Type</th>
                   <th>Category</th>
                   <th>Account</th>
-                  <th>Debit</th>
-                  <th>Credit</th>
-                  <th>Balance</th>
+                  <th style={{textAlign:'right'}}>Debit</th>
+                  <th style={{textAlign:'right'}}>Credit</th>
+                  <th style={{textAlign:'right'}}>Balance</th>
+                  <th>Remark</th>
                   <th>Date</th>
-                  <th>Actions</th>
+                  <th style={{textAlign:'right'}}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredExpenses.slice(0, 50).map((expense) => (
-                  <tr key={expense._id} className="hover:bg-muted/50 transition-colors">
-                    <td className="font-mono text-sm">{expense.srNo}</td>
+                {filtered.map(exp => (
+                  <tr key={exp._id}>
+                    <td className="font-mono text-xs text-muted-foreground">{exp.srNo}</td>
                     <td>
-                      <span className={`badge ${expense.type === 'income' ? 'badge-success' : 'badge-danger'}`}>
-                        {expense.type.toUpperCase()}
+                      <span className={`badge ${exp.type === 'income' ? 'badge-success' : 'badge-danger'}`}>
+                        {exp.type}
                       </span>
                     </td>
-                    <td className="font-medium">{expense.category}</td>
-                    <td className="text-sm">{expense.account}</td>
-                    <td className="font-mono text-red-600">-{expense.debitAmount?.toLocaleString()}</td>
-                    <td className="font-mono text-green-600">+{expense.creditAmount?.toLocaleString()}</td>
-                    <td className="font-mono font-semibold">
-                      AED {expense.balance?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    <td className="font-medium text-sm">{exp.category}</td>
+                    <td className="text-sm text-muted-foreground capitalize">{exp.account}</td>
+                    <td className="text-right font-mono text-sm">
+                      {exp.debitAmount > 0
+                        ? <span className="text-red-600 font-semibold">{exp.debitAmount.toLocaleString()}</span>
+                        : <span className="text-muted-foreground">—</span>}
                     </td>
-                    <td className="text-sm text-muted-foreground">
-                      {new Date(expense.date).toLocaleDateString()}
+                    <td className="text-right font-mono text-sm">
+                      {exp.creditAmount > 0
+                        ? <span className="text-emerald-600 font-semibold">{exp.creditAmount.toLocaleString()}</span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="text-right font-mono text-sm font-bold">
+                      <span className={(exp.balance || 0) >= 0 ? 'text-foreground' : 'text-red-600'}>
+                        {(exp.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="text-sm text-muted-foreground max-w-[160px] truncate">{exp.remark || '—'}</td>
+                    <td className="text-sm text-muted-foreground whitespace-nowrap">
+                      {new Date(exp.date || exp.createdAt).toLocaleDateString()}
                     </td>
                     <td>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => {
-                            setEditingItem(expense);
-                            setFormData({
-                              srNo: expense.srNo,
-                              type: expense.type,
-                              category: expense.category,
-                              account: expense.account,
-                              amount: expense.amount || '',
-                              remark: expense.remark || ''
-                            });
-                            setIsModalOpen(true);
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors"
-                          title="Edit"
-                        >
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(exp)} title="Edit"
+                          className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors">
                           <PencilIcon className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(expense._id)}
-                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-destructive hover:text-destructive transition-colors"
-                          title="Delete"
-                        >
+                        <button onClick={() => handleDelete(exp._id)} title="Delete"
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors">
                           <TrashIcon className="w-4 h-4" />
                         </button>
                       </div>
@@ -326,143 +259,120 @@ export default function ExpenseTracker() {
               </tbody>
             </table>
           </div>
+
+          {!filtered.length && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+                <BanknotesIcon className="w-7 h-7 text-emerald-500" />
+              </div>
+              <p className="font-semibold text-foreground">No transactions</p>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
+                {search || typeF !== 'all' ? 'Try adjusting your filters.' : 'Add your first transaction.'}
+              </p>
+              {!search && typeF === 'all' && (
+                <button onClick={() => setModalOpen(true)} className="btn btn-primary text-sm">
+                  <PlusIcon className="w-4 h-4" /> Add Transaction
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Add/Edit Transaction Modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="glass-card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-card/90 backdrop-blur-sm border-b border-border p-6 z-10">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-foreground">
-                    {editingItem ? 'Edit Transaction' : 'Add New Transaction'}
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setEditingItem(null);
-                      setFormData({ srNo: '', type: 'expense', category: '', account: 'cash', amount: '', remark: '' });
-                    }}
-                    className="p-2 rounded-xl hover:bg-accent transition-colors"
-                  >
-                    <XMarkIcon className="w-6 h-6 text-muted-foreground" />
-                  </button>
+        {filtered.length > 0 && (
+          <p className="text-xs text-muted-foreground text-center pb-2">
+            Showing {filtered.length} of {expenses.length} transactions
+          </p>
+        )}
+      </div>
+
+      {/* ── Modal ── */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-lg shadow-2xl">
+
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="text-lg font-bold text-foreground">
+                {editing ? 'Edit Transaction' : 'Add Transaction'}
+              </h2>
+              <button onClick={closeModal}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors">
+                <XMarkIcon className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    SR No <span className="text-red-500">*</span>
+                  </label>
+                  <input type="text" required value={form.srNo} onChange={set('srNo')}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Type</label>
+                  <select value={form.type} onChange={set('type')}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                  </select>
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">SR No</label>
-                    <input
-                      type="text"
-                      value={formData.srNo}
-                      onChange={(e) => setFormData({ ...formData, srNo: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Type</label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    >
-                      <option value="income">Income</option>
-                      <option value="expense">Expense</option>
-                    </select>
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <select required value={form.category} onChange={set('category')}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="">— Select —</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Category</label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    >
-                      <option value="">Select Category</option>
-                      {categories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Account</label>
-                    <select
-                      value={formData.account}
-                      onChange={(e) => setFormData({ ...formData, account: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    >
-                      {accountOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Account</label>
+                  <select value={form.account} onChange={set('account')}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary">
+                    {ACCOUNTS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                  </select>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Amount</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Remark</label>
-                    <input
-                      type="text"
-                      value={formData.remark}
-                      onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                      className="w-full px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Amount <span className="text-red-500">*</span>
+                  </label>
+                  <input type="number" required min="0" step="0.01" value={form.amount} onChange={set('amount')}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button
-                    type="submit"
-                    className="btn btn-primary flex-1"
-                  >
-                    {editingItem ? 'Update' : 'Add'} Transaction
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setEditingItem(null);
-                      setFormData({ srNo: '', type: 'expense', category: '', account: 'cash', amount: '', remark: '' });
-                    }}
-                    className="btn btn-secondary flex-1"
-                  >
-                    Cancel
-                  </button>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Remark</label>
+                  <input type="text" value={form.remark} onChange={set('remark')}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
-              </form>
-            </div>
-          </div>
-        )}
+              </div>
 
-        <div className="grid grid-cols-1 gap-6 mt-8">
-          <div className="bg-muted/50 p-6 rounded-2xl text-center">
-            <p className="text-sm text-muted-foreground mb-2">Showing {filteredExpenses.length} of {expenses.length} transactions</p>
-            <p className="text-2xl font-bold text-foreground">
-              Current Cash Balance: AED {balances.cash.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </p>
+              <div className="flex gap-3 pt-2 border-t border-border">
+                <button type="submit" className="btn btn-primary flex-1">
+                  {editing ? 'Save Changes' : 'Add Transaction'}
+                </button>
+                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      </div>
+      )}
     </DashboardLayout>
   );
 }
