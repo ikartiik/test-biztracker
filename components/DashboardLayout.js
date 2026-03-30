@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -15,7 +15,9 @@ import {
   Bars3Icon,
   XMarkIcon,
   GlobeAltIcon,
-  BuildingOfficeIcon
+  BuildingOfficeIcon,
+  MoonIcon,
+  SunIcon
 } from '@heroicons/react/24/outline';
 
 const allNavigation = [
@@ -30,8 +32,26 @@ const allNavigation = [
 
 export default function DashboardLayout({ children, activeTab = 'dashboard' }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isDark, setIsDark] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('theme') === 'dark';
+      setIsDark(saved);
+      document.documentElement.classList.toggle('dark', saved);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newDark = !isDark;
+    setIsDark(newDark);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', newDark ? 'dark' : 'light');
+      document.documentElement.classList.toggle('dark', newDark);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
@@ -74,10 +94,17 @@ export default function DashboardLayout({ children, activeTab = 'dashboard' }) {
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm">
-          <div className="flex items-center h-16 px-4 bg-blue-600">
-            <Link href="/dashboard" className="text-xl font-bold text-white">
+          <div className="flex items-center justify-between h-16 px-4 bg-gradient-to-r from-primary to-primary/80 backdrop-blur-md">
+            <Link href="/dashboard" className="text-xl font-bold text-primary-foreground">
               Tracker System
             </Link>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl bg-white/20 dark:bg-black/20 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-black/30 transition-all"
+              title="Toggle theme"
+            >
+              {isDark ? <SunIcon className="w-5 h-5 text-primary-foreground" /> : <MoonIcon className="w-5 h-5 text-primary-foreground" />}
+            </button>
           </div>
           <nav className="flex-1 px-4 py-4 space-y-2">
             {navigation.map((item) => (
@@ -115,22 +142,31 @@ export default function DashboardLayout({ children, activeTab = 'dashboard' }) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Mobile header */}
-        <div className="flex items-center justify-between h-16 px-4 bg-white border-b border-gray-200 lg:hidden">
+        <div className="flex items-center justify-between h-16 px-4 glass border-b dark:border-white/20 lg:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-gray-500 hover:text-gray-700"
+            className="p-2 text-foreground hover:bg-accent rounded-xl transition-colors"
           >
             <Bars3Icon className="w-6 h-6" />
           </button>
-          <Link href="/dashboard" className="text-lg font-semibold text-gray-900">
+          <Link href="/dashboard" className="text-lg font-semibold text-foreground">
             Tracker System
           </Link>
-          <button
-            onClick={handleSignOut}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <ArrowRightOnRectangleIcon className="w-6 h-6" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-xl bg-accent/50 hover:bg-accent rounded-xl transition-all"
+              title="Toggle theme"
+            >
+              {isDark ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="p-2 text-foreground hover:bg-accent rounded-xl transition-colors"
+            >
+              <ArrowRightOnRectangleIcon className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Page content */}

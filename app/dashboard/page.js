@@ -20,6 +20,19 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+import {
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -128,6 +141,25 @@ export default function Dashboard() {
       href: '/dashboard/shipping'
     },
   ];
+
+  // Mock chart data (enhance with API later)
+  const expenseData = [
+    { month: 'Jan', expenses: 4000, credits: 2400 },
+    { month: 'Feb', expenses: 3000, credits: 1398 },
+    { month: 'Mar', expenses: 2000, credits: 9800 },
+    { month: 'Apr', expenses: 2780, credits: 3908 },
+    { month: 'May', expenses: 1890, credits: 4800 },
+    { month: 'Jun', expenses: 2390, credits: 3800 },
+  ];
+
+  const vendorData = [
+    { name: 'Vendor A', value: 400 },
+    { name: 'Vendor B', value: 300 },
+    { name: 'Vendor C', value: 300 },
+    { name: 'Vendor D', value: 200 },
+  ];
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   const moduleCards = [
     {
@@ -257,16 +289,16 @@ export default function Dashboard() {
             <div
               key={card.name}
               onClick={() => router.push(card.href)}
-              className="group relative overflow-hidden bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1"
+              className="glass-card group relative overflow-hidden p-0 hover:shadow-2xl hover:shadow-primary/25 dark:hover:shadow-primary/10 transition-all duration-300 cursor-pointer transform hover:-translate-y-2 hover:rotate-1"
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${card.bgGradient} opacity-50`}></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/20 dark:to-primary/30 opacity-50" />
               <div className="relative p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`p-3 rounded-xl bg-gradient-to-br ${card.gradient} shadow-lg`}>
-                    <card.icon className="w-6 h-6 text-white" />
+                <div className="flex items-center justify-between mb-6">
+                  <div className={`p-3 rounded-2xl glass bg-primary/20 shadow-lg group-hover:scale-110 transition-all duration-300`}>
+                    <card.icon className="w-6 h-6 text-primary" />
                   </div>
-                  <div className={`flex items-center text-sm font-semibold ${card.trendUp ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className={`flex items-center text-sm font-semibold p-2 rounded-xl ${card.trendUp ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'}`}>
                     {card.trendUp ? (
                       <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
                     ) : (
@@ -275,81 +307,136 @@ export default function Dashboard() {
                     {card.trend}
                   </div>
                 </div>
-                <h3 className="text-sm font-medium text-gray-600 mb-1">{card.name}</h3>
-                <p className="text-2xl font-bold text-gray-900 mb-1">{card.value}</p>
-                <p className="text-sm text-gray-500">{card.amount || card.subtext}</p>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">{card.name}</h3>
+                <p className="text-3xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent mb-1">{card.value}</p>
+                <p className="text-sm text-muted-foreground">{card.amount || card.subtext}</p>
               </div>
-              <div className={`h-1 bg-gradient-to-r ${card.gradient}`}></div>
+              <div className={`h-2 bg-gradient-to-r from-primary via-primary/80 to-primary/60 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-700`}></div>
             </div>
           ))}
         </div>
 
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          {/* Expense Trend Line Chart */}
+          <div className="glass-card p-8">
+            <h3 className="text-2xl font-bold text-foreground mb-6 flex items-center">
+              <ChartBarIcon className="w-8 h-8 mr-3 text-primary" />
+              Expense Trends
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={expenseData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={3} dot={{ fill: '#ef4444', strokeWidth: 2 }} activeDot={{ r: 8 }} />
+                <Line type="monotone" dataKey="credits" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', strokeWidth: 2 }} activeDot={{ r: 8 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Vendor Distribution Pie Chart */}
+          <div className="glass-card p-8">
+            <h3 className="text-2xl font-bold text-foreground mb-6 flex items-center">
+              <BuildingOfficeIcon className="w-8 h-8 mr-3 text-primary" />
+              Vendor Spend Distribution
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={vendorData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                  nameKey="name"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {vendorData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
         {/* Status Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl p-6 border border-green-200">
-            <div className="flex items-center mb-4">
-              <CheckCircleIcon className="w-8 h-8 text-green-600 mr-3" />
-              <h3 className="text-lg font-semibold text-gray-900">Completed</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="glass-card p-8 border border-border/50 group hover:shadow-xl hover:shadow-green-500/10 dark:hover:shadow-green-400/20">
+            <div className="flex items-center mb-6 group-hover:scale-105 transition-transform">
+              <div className="p-3 rounded-2xl bg-green-500/20 backdrop-blur-sm shadow-lg border border-green-500/30">
+                <CheckCircleIcon className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="ml-4 text-xl font-bold text-foreground">Completed</h3>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Purchased Items</span>
-                <span className="font-semibold text-gray-900">{stats?.summary?.purchases?.purchased || 0}</span>
+            <div className="space-y-4 text-lg">
+              <div className="flex justify-between p-3 glass rounded-xl">
+                <span className="text-muted-foreground font-medium">Purchased Items</span>
+                <span className="font-bold text-foreground">{stats?.summary?.purchases?.purchased || 0}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Received Items</span>
-                <span className="font-semibold text-gray-900">{stats?.summary?.pending?.received || 0}</span>
+              <div className="flex justify-between p-3 glass rounded-xl">
+                <span className="text-muted-foreground font-medium">Received Items</span>
+                <span className="font-bold text-foreground">{stats?.summary?.pending?.received || 0}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Shipped Orders</span>
-                <span className="font-semibold text-gray-900">{stats?.summary?.shipping?.shipped || 0}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-yellow-50 to-orange-100 rounded-xl p-6 border border-yellow-200">
-            <div className="flex items-center mb-4">
-              <ExclamationTriangleIcon className="w-8 h-8 text-yellow-600 mr-3" />
-              <h3 className="text-lg font-semibold text-gray-900">Pending/Urgent</h3>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Urgent Items</span>
-                <span className="font-semibold text-orange-600">{stats?.summary?.pending?.urgent || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Pending Items</span>
-                <span className="font-semibold text-gray-900">{stats?.summary?.pending?.pending || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Quotations</span>
-                <span className="font-semibold text-gray-900">{stats?.summary?.purchases?.quotations || 0}</span>
+              <div className="flex justify-between p-3 glass rounded-xl">
+                <span className="text-muted-foreground font-medium">Shipped Orders</span>
+                <span className="font-bold text-foreground">{stats?.summary?.shipping?.shipped || 0}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl p-6 border border-blue-200">
-            <div className="flex items-center mb-4">
-              <ChartBarIcon className="w-8 h-8 text-blue-600 mr-3" />
-              <h3 className="text-lg font-semibold text-gray-900">Financial Summary</h3>
+          <div className="glass-card p-8 border border-border/50 group hover:shadow-xl hover:shadow-orange-500/10 dark:hover:shadow-orange-400/20">
+            <div className="flex items-center mb-6 group-hover:scale-105 transition-transform">
+              <div className="p-3 rounded-2xl bg-orange-500/20 backdrop-blur-sm shadow-lg border border-orange-500/30">
+                <ExclamationTriangleIcon className="w-8 h-8 text-orange-600" />
+              </div>
+              <h3 className="ml-4 text-xl font-bold text-foreground">Pending/Urgent</h3>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Total Credits</span>
-                <span className="font-semibold text-green-600">
-                  {(stats?.summary?.expenses?.totalCredit || 0).toLocaleString()}
+            <div className="space-y-4 text-lg">
+              <div className="flex justify-between p-3 glass rounded-xl bg-orange-100/50 dark:bg-orange-900/20">
+                <span className="text-muted-foreground font-medium">Urgent Items</span>
+                <span className="font-bold text-orange-600">{stats?.summary?.pending?.urgent || 0}</span>
+              </div>
+              <div className="flex justify-between p-3 glass rounded-xl">
+                <span className="text-muted-foreground font-medium">Pending Items</span>
+                <span className="font-bold text-foreground">{stats?.summary?.pending?.pending || 0}</span>
+              </div>
+              <div className="flex justify-between p-3 glass rounded-xl">
+                <span className="text-muted-foreground font-medium">Quotations</span>
+                <span className="font-bold text-foreground">{stats?.summary?.purchases?.quotations || 0}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card p-8 border border-border/50 group hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-blue-400/20">
+            <div className="flex items-center mb-6 group-hover:scale-105 transition-transform">
+              <div className="p-3 rounded-2xl bg-blue-500/20 backdrop-blur-sm shadow-lg border border-blue-500/30">
+                <ChartBarIcon className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="ml-4 text-xl font-bold text-foreground">Financial Summary</h3>
+            </div>
+            <div className="space-y-4 text-lg">
+              <div className="flex justify-between p-3 glass rounded-xl">
+                <span className="text-muted-foreground font-medium">Total Credits</span>
+                <span className="font-bold text-green-600">
+                  AED {(stats?.summary?.expenses?.totalCredit || 0).toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Total Debits</span>
-                <span className="font-semibold text-red-600">
-                  {(stats?.summary?.expenses?.totalDebit || 0).toLocaleString()}
+              <div className="flex justify-between p-3 glass rounded-xl">
+                <span className="text-muted-foreground font-medium">Total Debits</span>
+                <span className="font-bold text-red-600">
+                  AED {(stats?.summary?.expenses?.totalDebit || 0).toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between border-t border-blue-300 pt-2">
-                <span className="text-gray-900 font-semibold">Balance</span>
-                <span className="font-bold text-blue-600">
-                  {(stats?.summary?.expenses?.balance || 0).toLocaleString()}
+              <div className="flex justify-between p-4 glass-card rounded-2xl border-t border-primary/30 pt-4">
+                <span className="text-foreground font-bold text-xl">Balance</span>
+                <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-primary bg-clip-text text-transparent">
+                  AED {(stats?.summary?.expenses?.balance || 0).toLocaleString()}
                 </span>
               </div>
             </div>
