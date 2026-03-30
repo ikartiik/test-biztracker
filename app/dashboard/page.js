@@ -189,6 +189,12 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Status Grid */}
+        <StatusGrid stats={stats} />
+        
+        {/* Charts Section */}
+        <ChartSection stats={stats} />
+
         {/* Module cards */}
         <div>
           <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">

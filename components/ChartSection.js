@@ -18,7 +18,9 @@ import { BuildingOfficeIcon as BuildingOfficeIconSolid } from '@heroicons/react/
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
-export default function ChartSection({ expenseData = [], vendorData = [] }) {
+export default function ChartSection({ stats }) {
+  const expenseData = stats?.charts?.expenses || [];
+  const vendorData = stats?.charts?.vendors || [];
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Expense Trends */}
