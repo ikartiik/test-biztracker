@@ -12,6 +12,6 @@
 - [x] Create TODO (done)
 - [x] Edit app/api/pending/route.js (added status filter)
 - [x] Test /dashboard/pending shows no shipped items (API now returns only Pending/Received)
-- [ ] Commit "fix(pending-api): filter shipped items from pending list"
-- [ ] Push
-- [ ] Complete
+- [x] Commit cb6dc04 "fix(pending-api): filter shipped items from pending tracker"
+- [x] Pushed to blackboxai/login-mongodb-fix
+- [x] Complete ✅
