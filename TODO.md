@@ -1,16 +1,16 @@
-# Task Progress: Remove StatusGrid and ChartSection from Dashboard
+# Concentric Tracker Merge Conflict Fix & Deploy
+Status: 🚀 In Progress (0/12 complete)
 
-**Approved Plan:**
-- Remove StatusGrid and ChartSection components from app/dashboard/page.js
-- Keep stat cards, summary strip, module cards, recent activity sections
-- Commit and push changes
-
-**TODO Steps:**
-- [x] Create TODO.md with steps (done)
-- [x] Read app/dashboard/page.js content to prepare exact edits (previously analyzed)
-- [x] Edit app/dashboard/page.js to remove the two components
-- [x] Test the dashboard renders correctly (npm run dev) - server running on :3001, no build errors
-- [x] Commit changes with descriptive message
-- [x] Push to github branch
-- [x] attempt_completion
-
+## Steps
+- [ ] 1. Fix app/globals.css (CSS syntax)
+- [ ] 2. Fix lib/mongodb.js (DB connection)
+- [ ] 3. Fix tailwind.config.js
+- [ ] 4. Fix app/api/expense/route.js
+- [ ] 5. Fix models/Expense.js schema
+- [ ] 6. Fix app/api/pending/route.js
+- [ ] 7. Fix app/api/import/route.js
+- [ ] 8. Fix app/api/purchase/route.js
+- [ ] 9. Fix app/api/shipping/route.js
+- [ ] 10. Fix components/DashboardLayout.js
+- [ ] 11. Fix dashboard page.js files (expense/import/etc.)
+- [ ] 12. npm run build & test

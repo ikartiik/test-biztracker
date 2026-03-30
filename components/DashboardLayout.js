@@ -1,410 +1,184 @@
 'use client';
 
-<<<<<<< HEAD
-import { useState } from 'react';
-import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-=======
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
->>>>>>> blackboxai/login-mongodb-fix
 import Link from 'next/link';
 import {
   ShoppingCartIcon,
   TruckIcon,
   ClockIcon,
   CurrencyDollarIcon,
-  ArchiveBoxIcon,
-  UserIcon,
-  ArrowRightOnRectangleIcon,
-  Bars3Icon,
-  XMarkIcon,
-  GlobeAltIcon,
   BuildingOfficeIcon,
-<<<<<<< HEAD
+  BanknotesIcon,
   HomeIcon,
-  ChevronDownIcon,
-  Cog6ToothIcon
-} from '@heroicons/react/24/outline';
-
-const allNavigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, roles: ['admin', 'user'] },
-  { name: 'Purchase Tracker', href: '/dashboard/purchase', icon: ShoppingCartIcon, roles: ['admin', 'user'] },
-  { name: 'Import Tracker', href: '/dashboard/import', icon: GlobeAltIcon, roles: ['admin'] },
-  { name: 'Shipping Tracker', href: '/dashboard/shipping', icon: TruckIcon, roles: ['admin'] },
-  { name: 'Pending Tracker', href: '/dashboard/pending', icon: ClockIcon, roles: ['admin', 'user'] },
-  { name: 'Expense Tracker', href: '/dashboard/expense', icon: CurrencyDollarIcon, roles: ['admin'] },
-  { name: 'Vendors', href: '/dashboard/vendors', icon: BuildingOfficeIcon, roles: ['admin'] },
-  { name: 'User Management', href: '/dashboard/users', icon: UserIcon, roles: ['admin'] },
-];
-
-export default function DashboardLayout({ children, activeTab = 'dashboard' }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const { data: session } = useSession();
-  const router = useRouter();
-=======
   MoonIcon,
   SunIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  Squares2X2Icon,
+  Bars3Icon,
+  XMarkIcon,
+  ArrowRightOnRectangleIcon,
+  UsersIcon,
 } from '@heroicons/react/24/outline';
 
-const allNavigation = [
-  { name: 'Dashboard',        href: '/dashboard',          icon: Squares2X2Icon,    roles: ['admin', 'user'] },
-  { name: 'Purchase Tracker', href: '/dashboard/purchase', icon: ShoppingCartIcon,  roles: ['admin', 'user'] },
-  { name: 'Import Tracker',   href: '/dashboard/import',   icon: GlobeAltIcon,      roles: ['admin'] },
-  { name: 'Shipping Tracker', href: '/dashboard/shipping', icon: TruckIcon,         roles: ['admin'] },
-  { name: 'Pending Tracker',  href: '/dashboard/pending',  icon: ClockIcon,         roles: ['admin', 'user'] },
-  { name: 'Accounts',         href: '/dashboard/expense',  icon: CurrencyDollarIcon,roles: ['admin'] },
-  { name: 'Vendors',          href: '/dashboard/vendors',  icon: BuildingOfficeIcon,roles: ['admin'] },
-  { name: 'Users',            href: '/dashboard/users',    icon: UserIcon,          roles: ['admin'] },
+const navigation = [
+  { name: 'Dashboard', href: '/dashboard',          icon: HomeIcon,           adminOnly: false },
+  { name: 'Purchase',  href: '/dashboard/purchase',  icon: ShoppingCartIcon,   adminOnly: false },
+  { name: 'Pending',   href: '/dashboard/pending',   icon: ClockIcon,          adminOnly: false },
+  { name: 'Shipping',  href: '/dashboard/shipping',  icon: TruckIcon,          adminOnly: false },
+  { name: 'Import',    href: '/dashboard/import',    icon: BanknotesIcon,      adminOnly: false },
+  { name: 'Expense',   href: '/dashboard/expense',   icon: CurrencyDollarIcon, adminOnly: false },
+  { name: 'Vendors',   href: '/dashboard/vendors',   icon: BuildingOfficeIcon, adminOnly: false },
+  { name: 'Users',     href: '/dashboard/users',     icon: UsersIcon,          adminOnly: true  },
 ];
 
 export default function DashboardLayout({ children }) {
-  const [mobileOpen, setMobileOpen]   = useState(false);
-  const [collapsed, setCollapsed]     = useState(false);
-  const [isDark, setIsDark]           = useState(false);
-  const { data: session }             = useSession();
-  const router                        = useRouter();
-  const pathname                      = usePathname();
+  const { data: session } = useSession();
+  const router            = useRouter();
+  const pathname          = usePathname();
+  const [isDark,          setIsDark]          = useState(false);
+  const [mobileMenuOpen,  setMobileMenuOpen]  = useState(false);
 
+  /* Initialise dark mode from localStorage / system preference */
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const dark      = localStorage.getItem('theme') === 'dark';
-    const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    const saved = localStorage.theme;
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const dark = saved === 'dark' || (!saved && prefersDark);
     setIsDark(dark);
-    setCollapsed(collapsed);
     document.documentElement.classList.toggle('dark', dark);
   }, []);
 
-  const toggleTheme = () => {
+  const toggleDark = () => {
     const next = !isDark;
     setIsDark(next);
-    localStorage.setItem('theme', next ? 'dark' : 'light');
+    localStorage.theme = next ? 'dark' : 'light';
     document.documentElement.classList.toggle('dark', next);
   };
 
-  const toggleCollapsed = () => {
-    const next = !collapsed;
-    setCollapsed(next);
-    localStorage.setItem('sidebarCollapsed', String(next));
-  };
->>>>>>> blackboxai/login-mongodb-fix
+  if (!session) return null;
 
-  const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    router.push('/login');
-  };
+  const initials = (session.user?.username ?? 'U')
+    .slice(0, 2)
+    .toUpperCase();
 
-<<<<<<< HEAD
-  // Filter navigation based on user role
-  const navigation = allNavigation.filter(item => 
-    item.roles.includes(session?.user?.role?.toLowerCase() || 'user')
-  );
-
-  const getPageTitle = () => {
-    const currentItem = allNavigation.find(item => item.href === router.pathname);
-    return currentItem?.name || 'Dashboard';
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Mobile sidebar */}
-      <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? '' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-        <div className="fixed inset-y-0 left-0 flex flex-col w-72 bg-white shadow-2xl">
-          <div className="flex items-center justify-between h-16 px-5 bg-gradient-to-r from-blue-600 to-indigo-600">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <BuildingOfficeIcon className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-lg font-bold text-white">Concentric</h1>
-            </div>
-            <button onClick={() => setSidebarOpen(false)} className="text-white/80 hover:text-white">
-              <XMarkIcon className="w-6 h-6" />
-            </button>
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+      {/* Brand */}
+      <div className="px-5 py-5 border-b border-slate-700/60">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center flex-shrink-0">
+            <span className="text-white text-sm font-bold">B</span>
           </div>
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
-                  router.pathname === item.href || (item.href !== '/dashboard' && router.pathname?.startsWith(item.href))
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                <item.icon className={`w-5 h-5 mr-3 ${router.pathname === item.href ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-          <div className="p-4 border-t border-slate-200">
-            <div className="flex items-center p-2 rounded-lg bg-slate-50">
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                <UserIcon className="w-5 h-5 text-white" />
-              </div>
-              <div className="ml-3 flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{session?.user?.username}</p>
-                <p className="text-xs text-slate-500 capitalize">{session?.user?.role}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="mt-3 w-full flex items-center px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
-              Sign Out
-            </button>
+          <div>
+            <p className="text-white font-bold text-base leading-tight">BizTracker</p>
+            <p className="text-slate-400 text-xs leading-tight capitalize">{session.user?.username}</p>
           </div>
         </div>
       </div>
 
-      {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-slate-200 shadow-sm">
-          <div className="flex items-center h-16 px-5 bg-gradient-to-r from-blue-600 to-indigo-600">
-            <Link href="/dashboard" className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <BuildingOfficeIcon className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-lg font-bold text-white">Concentric</span>
-            </Link>
-          </div>
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all ${
-                  router.pathname === item.href || (item.href !== '/dashboard' && router.pathname?.startsWith(item.href))
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-              >
-                <item.icon className={`w-5 h-5 mr-3 ${router.pathname === item.href ? 'text-blue-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-          <div className="p-4 border-t border-slate-200">
-            <div className="flex items-center p-2 rounded-lg bg-slate-50">
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                <UserIcon className="w-5 h-5 text-white" />
-              </div>
-              <div className="ml-3 flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{session?.user?.username}</p>
-                <p className="text-xs text-slate-500 capitalize">{session?.user?.role}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="mt-3 w-full flex items-center px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Mobile header */}
-        <div className="sticky top-0 z-40 flex items-center justify-between h-16 px-4 bg-white border-b border-slate-200 lg:hidden">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 -ml-2 text-slate-500 hover:text-slate-700"
-          >
-            <Bars3Icon className="w-6 h-6" />
-          </button>
-          <Link href="/dashboard" className="flex items-center space-x-2">
-            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-              <BuildingOfficeIcon className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-semibold text-slate-900">Concentric</span>
-          </Link>
-          <div className="w-9"></div>
-        </div>
-
-        {/* Page content */}
-        <main className="p-4 lg:p-6 xl:p-8">
-          <div className="animate-fade-in">
-            {children}
-          </div>
-=======
-  const navigation = allNavigation.filter(item =>
-    item.roles.includes(session?.user?.role?.toLowerCase() || 'user')
-  );
-
-  const isActive = (href) =>
-    href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
-
-  const sidebarW = collapsed ? 'lg:w-[64px]' : 'lg:w-[220px]';
-
-  return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 flex">
-
-      {/* ── Mobile overlay ─────────────────────────────── */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* ── Sidebar ────────────────────────────────────── */}
-      <aside
-        className={`
-          fixed inset-y-0 left-0 z-50 flex flex-col
-          bg-slate-900 dark:bg-gray-950
-          border-r border-slate-800 dark:border-gray-800
-          transition-[width] duration-200 ease-in-out overflow-hidden
-          ${sidebarW}
-          w-[220px]
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-      >
-        {/* Brand row */}
-        <div className={`flex items-center h-[56px] shrink-0 px-3 border-b border-slate-800 dark:border-gray-800 ${collapsed ? 'justify-center' : 'justify-between'}`}>
-          {!collapsed && (
+      {/* Nav links */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        {navigation
+          .filter(item => !item.adminOnly || session?.user?.role === 'admin')
+          .map((item) => {
+          const active = pathname === item.href;
+          return (
             <Link
-              href="/dashboard"
-              className="text-sm font-bold text-white truncate tracking-wide"
-              onClick={() => setMobileOpen(false)}
+              key={item.name}
+              href={item.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className={`
+                flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                transition-colors duration-100
+                ${active
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+                }
+              `}
             >
-              Concentric
+              <item.icon className="w-4.5 h-4.5 flex-shrink-0" style={{ width: '1.125rem', height: '1.125rem' }} />
+              {item.name}
             </Link>
-          )}
+          );
+        })}
+      </nav>
 
-          {/* Desktop collapse toggle */}
-          <button
-            onClick={toggleCollapsed}
-            title={collapsed ? 'Expand' : 'Collapse'}
-            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
-          >
-            {collapsed
-              ? <ChevronRightIcon className="w-4 h-4" />
-              : <ChevronLeftIcon  className="w-4 h-4" />}
-          </button>
+      {/* Bottom actions */}
+      <div className="px-3 pb-4 pt-2 border-t border-slate-700/60 space-y-0.5">
+        <button
+          onClick={toggleDark}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-700/60 transition-colors"
+        >
+          {isDark
+            ? <SunIcon  className="w-4.5 h-4.5 flex-shrink-0" style={{ width: '1.125rem', height: '1.125rem' }} />
+            : <MoonIcon className="w-4.5 h-4.5 flex-shrink-0" style={{ width: '1.125rem', height: '1.125rem' }} />
+          }
+          {isDark ? 'Light mode' : 'Dark mode'}
+        </button>
+        <button
+          onClick={() => signOut({ callbackUrl: '/login' })}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+        >
+          <ArrowRightOnRectangleIcon className="flex-shrink-0" style={{ width: '1.125rem', height: '1.125rem' }} />
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
 
-          {/* Mobile close */}
-          <button
-            onClick={() => setMobileOpen(false)}
-            className="lg:hidden p-1 rounded text-slate-400 hover:text-white"
-          >
-            <XMarkIcon className="w-5 h-5" />
-          </button>
-        </div>
+  return (
+    <div className="min-h-screen bg-background flex">
 
-        {/* Nav links */}
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-          {navigation.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                title={collapsed ? item.name : undefined}
-                className={`
-                  group flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium
-                  transition-colors duration-150 whitespace-nowrap
-                  ${active
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white dark:hover:bg-gray-800'
-                  }
-                  ${collapsed ? 'justify-center' : ''}
-                `}
-              >
-                <item.icon className="w-[18px] h-[18px] shrink-0" />
-                {!collapsed && <span>{item.name}</span>}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Bottom: user + sign out */}
-        <div className="shrink-0 border-t border-slate-800 dark:border-gray-800 px-2 py-3 space-y-0.5">
-
-          {/* Theme toggle */}
-          <button
-            onClick={toggleTheme}
-            title={isDark ? 'Light mode' : 'Dark mode'}
-            className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors ${collapsed ? 'justify-center' : ''}`}
-          >
-            {isDark
-              ? <SunIcon  className="w-[18px] h-[18px] shrink-0" />
-              : <MoonIcon className="w-[18px] h-[18px] shrink-0" />}
-            {!collapsed && <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>}
-          </button>
-
-          {/* User info row */}
-          {!collapsed && session?.user && (
-            <div className="px-2.5 py-2">
-              <p className="text-xs font-semibold text-white truncate capitalize">
-                {session.user.username}
-              </p>
-              <p className="text-xs text-slate-400 capitalize">{session.user.role}</p>
-            </div>
-          )}
-
-          {/* Sign out */}
-          <button
-            onClick={handleSignOut}
-            title="Sign out"
-            className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors ${collapsed ? 'justify-center' : ''}`}
-          >
-            <ArrowRightOnRectangleIcon className="w-[18px] h-[18px] shrink-0" />
-            {!collapsed && <span>Sign Out</span>}
-          </button>
-        </div>
+      {/* ── Desktop sidebar ── */}
+      <aside className="hidden md:flex flex-col w-56 bg-slate-900 flex-shrink-0">
+        <SidebarContent />
       </aside>
 
-      {/* ── Content area ───────────────────────────────── */}
-      <div className={`flex-1 flex flex-col transition-[padding] duration-200 ${collapsed ? 'lg:pl-[64px]' : 'lg:pl-[220px]'}`}>
+      {/* ── Mobile overlay + drawer ── */}
+      {mobileMenuOpen && (
+        <>
+          <div
+            className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="md:hidden fixed inset-y-0 left-0 z-50 w-56 bg-slate-900 flex flex-col animate-slide-down">
+            <SidebarContent />
+          </div>
+        </>
+      )}
 
-        {/* Mobile top bar */}
-        <header className="lg:hidden sticky top-0 z-30 flex h-[56px] items-center gap-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 shadow-sm">
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <Bars3Icon className="w-5 h-5" />
-          </button>
-          <span className="text-sm font-bold text-gray-900 dark:text-white">Concentric</span>
-          <div className="ml-auto flex items-center gap-1">
+      {/* ── Content area ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+        {/* Header */}
+        <header className="h-14 bg-card border-b border-border flex items-center justify-between px-5 flex-shrink-0 sticky top-0 z-30">
+          <div className="flex items-center gap-3">
             <button
-              onClick={toggleTheme}
-              className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="md:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              onClick={() => setMobileMenuOpen(true)}
             >
-              {isDark ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
+              {mobileMenuOpen
+                ? <XMarkIcon   className="w-5 h-5" />
+                : <Bars3Icon   className="w-5 h-5" />
+              }
             </button>
-            <button
-              onClick={handleSignOut}
-              className="p-1.5 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-              title="Sign out"
-            >
-              <ArrowRightOnRectangleIcon className="w-5 h-5" />
-            </button>
+            <span className="text-sm font-semibold text-foreground capitalize">
+              {pathname.split('/').filter(Boolean).pop()?.replace(/-/g, ' ') || 'Dashboard'}
+            </span>
+          </div>
+
+          {/* Avatar */}
+          <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center">
+            <span className="text-white text-xs font-bold">{initials}</span>
           </div>
         </header>
 
-        {/* Main content */}
-        <main className="flex-1 p-5 lg:p-7 overflow-auto">
+        {/* Page content */}
+        <main className="flex-1 overflow-auto p-5 md:p-7">
           {children}
->>>>>>> blackboxai/login-mongodb-fix
         </main>
+
       </div>
     </div>
   );
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> blackboxai/login-mongodb-fix

@@ -1,1269 +1,503 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
-<<<<<<< HEAD
-import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, DocumentArrowUpIcon, UserPlusIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline';
-=======
-import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, DocumentArrowUpIcon, UserPlusIcon, CloudArrowUpIcon, FunnelIcon, MagnifyingGlassIcon, ClockIcon, CheckIcon, ArrowDownTrayIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import {
+  PlusIcon, PencilIcon, TrashIcon, XMarkIcon,
+  MagnifyingGlassIcon, ArrowDownTrayIcon,
+  DocumentArrowUpIcon, ChevronDownIcon, ChevronUpIcon,
+} from '@heroicons/react/24/outline';
 import { exportImports } from '@/lib/exportExcel';
->>>>>>> blackboxai/login-mongodb-fix
 
-export default function ImportTracker() {
+const PAYMENT_MODES = [
+  { value: 'cash',     label: 'Cash'     },
+  { value: 'mashreq',  label: 'Mashreq'  },
+  { value: 'hsbc',     label: 'HSBC'     },
+  { value: 'crown',    label: 'Crown FZ' },
+  { value: 'sasco',    label: 'SASCO FZ' },
+  { value: 'other_fz', label: 'Other FZ' },
+];
+
+const empty = {
+  vendorId: '', vendorName: '', country: '',
+  invoiceNumber: '', trackingNumber: '', trackingLink: '',
+  dateOfShipping: '', dateOfReceiving: '',
+  amountDutyPaid: '', paymentMode: 'cash',
+  status: 'Enroute',
+  items: [{ itemDescription: '', quantity: 1 }],
+};
+
+export default function ImportPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const fileInputRef = useRef(null);
-  const [imports, setImports] = useState([]);
-<<<<<<< HEAD
-=======
-  const [filteredImports, setFilteredImports] = useState([]);
->>>>>>> blackboxai/login-mongodb-fix
-  const [vendors, setVendors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-<<<<<<< HEAD
-  const [items, setItems] = useState([{ itemDescription: '', quantity: 1 }]);
-=======
-  const [expandedImportId, setExpandedImportId] = useState(null);
-  const [items, setItems] = useState([{ itemDescription: '', quantity: 1 }]);
-  const [filterVisible, setFilterVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState('enroute'); // 'enroute' or 'received'
 
-  // Filter states
-  const [filters, setFilters] = useState({
-    status: 'all',
-    vendor: 'all',
-    country: 'all',
-    paymentMode: 'all',
-    searchText: '',
-    startDate: '',
-    endDate: ''
-  });
->>>>>>> blackboxai/login-mongodb-fix
-  
-  const [formData, setFormData] = useState({
-    vendor: '',
-    country: '',
-    invoiceNumber: '',
-    trackingNumber: '',
-    trackingLink: '',
-    dateOfShipping: new Date().toISOString().split('T')[0],
-    dateOfReceiving: '',
-    amountDutyPaid: '',
-    paymentMode: 'cash',
-    bankName: '',
-    status: 'Enroute',
-    invoiceUpload: ''
-  });
-
-  const [vendorData, setVendorData] = useState({
-    company: '',
-    salespersonName: '',
-    contact: '',
-    email: '',
-    address: '',
-    products: []
-  });
-
-  const paymentAccounts = [
-    { value: 'cash', label: 'Cash' },
-    { value: 'mashreq', label: 'Mashreq Bank' },
-    { value: 'hsbc', label: 'HSBC Bank' },
-<<<<<<< HEAD
-=======
-    { value: 'kar_fab', label: 'Kar FAB' },
-    { value: 'kar_liv', label: 'Kar Liv' },
-    { value: 'kar_mashreq', label: 'Kar Mashreq' },
->>>>>>> blackboxai/login-mongodb-fix
-    { value: 'crown', label: 'Crown' },
-    { value: 'sasco', label: 'SASCO' },
-    { value: 'other_fz', label: 'Other FZ' }
-  ];
+  const [imports,   setImports]   = useState([]);
+  const [vendors,   setVendors]   = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing,   setEditing]   = useState(null);
+  const [expanded,  setExpanded]  = useState(null);
+  const [search,    setSearch]    = useState('');
+  const [statusF,   setStatusF]   = useState('all');
+  const [form,      setForm]      = useState(empty);
 
   useEffect(() => {
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-    fetchData();
-  }, [session, router]);
+    if (!session) { router.push('/login'); return; }
+    load();
+  }, [session]);
 
-<<<<<<< HEAD
-=======
-  // Apply filters whenever imports, filters, or activeTab change
-  useEffect(() => {
-    applyFilters();
-  }, [imports, filters, activeTab]);
-
-  const applyFilters = () => {
-    let filtered = [...imports];
-
-    // Tab filter - filter by status based on active tab
-    if (activeTab === 'enroute') {
-      filtered = filtered.filter(imp => imp.status === 'Enroute');
-    } else if (activeTab === 'received') {
-      filtered = filtered.filter(imp => imp.status === 'Received');
-    }
-
-    // Status filter (only if not already filtered by tab)
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(imp => imp.status === filters.status);
-    }
-
-    // Vendor filter
-    if (filters.vendor !== 'all') {
-      filtered = filtered.filter(imp => imp.vendor?._id === filters.vendor || imp.vendorName === filters.vendor);
-    }
-
-    // Country filter
-    if (filters.country !== 'all') {
-      filtered = filtered.filter(imp => imp.country === filters.country);
-    }
-
-    // Payment mode filter
-    if (filters.paymentMode !== 'all') {
-      filtered = filtered.filter(imp => imp.paymentMode === filters.paymentMode);
-    }
-
-    // Search text filter
-    if (filters.searchText) {
-      const searchLower = filters.searchText.toLowerCase();
-      filtered = filtered.filter(imp =>
-        imp.invoiceNumber?.toLowerCase().includes(searchLower) ||
-        imp.trackingNumber?.toLowerCase().includes(searchLower) ||
-        imp.vendorName?.toLowerCase().includes(searchLower) ||
-        imp.country?.toLowerCase().includes(searchLower) ||
-        imp.items?.some(item => item.itemDescription?.toLowerCase().includes(searchLower))
-      );
-    }
-
-    // Date range filter (shipping date)
-    if (filters.startDate) {
-      filtered = filtered.filter(imp => new Date(imp.dateOfShipping) >= new Date(filters.startDate));
-    }
-    if (filters.endDate) {
-      filtered = filtered.filter(imp => new Date(imp.dateOfShipping) <= new Date(filters.endDate));
-    }
-
-    setFilteredImports(filtered);
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      status: 'all',
-      vendor: 'all',
-      country: 'all',
-      paymentMode: 'all',
-      searchText: '',
-      startDate: '',
-      endDate: ''
-    });
-  };
-
-  const getActiveFiltersCount = () => {
-    let count = 0;
-    if (filters.status !== 'all') count++;
-    if (filters.vendor !== 'all') count++;
-    if (filters.country !== 'all') count++;
-    if (filters.paymentMode !== 'all') count++;
-    if (filters.searchText) count++;
-    if (filters.startDate) count++;
-    if (filters.endDate) count++;
-    return count;
-  };
-
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    // Reset status filter when changing tabs
-    setFilters({ ...filters, status: 'all' });
-  };
-
-  const getUniqueCountries = () => {
-    const countries = imports.map(imp => imp.country).filter(Boolean);
-    return [...new Set(countries)].sort();
-  };
-
->>>>>>> blackboxai/login-mongodb-fix
-  const fetchData = async () => {
+  const load = async () => {
+    setLoading(true);
     try {
-      await Promise.all([
-        fetchImports(),
-        fetchVendors()
-      ]);
-    } catch (error) {
-      toast.error('Error fetching data');
-    } finally {
-      setLoading(false);
+      const [iRes, vRes] = await Promise.all([fetch('/api/import'), fetch('/api/vendors')]);
+      const [i, v]       = await Promise.all([iRes.json(), vRes.json()]);
+      setImports(Array.isArray(i) ? i : []);
+      setVendors(Array.isArray(v) ? v : []);
+    } catch { toast.error('Failed to load data'); }
+    finally { setLoading(false); }
+  };
+
+  const filtered = imports.filter(imp => {
+    if (statusF !== 'all' && imp.status !== statusF) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!imp.vendorName?.toLowerCase().includes(q) &&
+          !imp.invoiceNumber?.toLowerCase().includes(q) &&
+          !(imp.items||[]).some(it => it.itemDescription?.toLowerCase().includes(q))) return false;
     }
-  };
+    return true;
+  });
 
-  const fetchImports = async () => {
-    const response = await fetch('/api/import');
-    const data = await response.json();
-    setImports(data);
-  };
-
-  const fetchVendors = async () => {
-    const response = await fetch('/api/vendors');
-    const data = await response.json();
-    setVendors(data);
-  };
+  const enrouteCount  = imports.filter(i => i.status === 'Enroute').length;
+  const receivedCount = imports.filter(i => i.status === 'Received').length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const url = editingItem ? `/api/import?id=${editingItem._id}` : '/api/import';
-      const method = editingItem ? 'PUT' : 'POST';
-      
-      const selectedVendor = vendors.find(v => v._id === formData.vendor);
-      const submitData = {
-        ...formData,
-        vendorName: selectedVendor?.company || '',
-        amountDutyPaid: parseFloat(formData.amountDutyPaid) || 0,
-        items: items.filter(item => item.itemDescription && item.quantity > 0)
+      const payload = {
+        vendor:          form.vendorId || undefined,
+        vendorName:      form.vendorName,
+        country:         form.country,
+        invoiceNumber:   form.invoiceNumber,
+        trackingNumber:  form.trackingNumber,
+        trackingLink:    form.trackingLink,
+        dateOfShipping:  form.dateOfShipping || undefined,
+        dateOfReceiving: form.dateOfReceiving || undefined,
+        amountDutyPaid:  parseFloat(form.amountDutyPaid) || 0,
+        paymentMode:     form.paymentMode,
+        status:          form.status,
+        items:           form.items.filter(it => it.itemDescription.trim()),
       };
-      
-      const response = await fetch(url, {
-        method,
+      const url = editing ? `/api/import?id=${editing._id}` : '/api/import';
+      const res = await fetch(url, {
+        method:  editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(submitData),
+        body:    JSON.stringify(payload),
       });
-
-      if (response.ok) {
-        toast.success(editingItem ? 'Import updated successfully' : 'Import added successfully');
-        if (submitData.amountDutyPaid > 0) {
-          toast.success('Expense entry created for duty payment');
+      if (res.ok) {
+        if (!editing && payload.amountDutyPaid > 0) {
+          await fetch('/api/expense', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              srNo: `DUTY-${Date.now()}`, category: 'CUSTOMS DUTY',
+              type: 'expense', account: payload.paymentMode,
+              amount: payload.amountDutyPaid,
+              remark: `Duty for import from ${payload.vendorName}`,
+            }),
+          });
         }
-<<<<<<< HEAD
-        if (submitData.status === 'Received') {
-          toast.success('Items added to pending tracker');
-        }
-        fetchImports();
-=======
-        fetchData();
->>>>>>> blackboxai/login-mongodb-fix
-        closeModal();
+        toast.success(editing ? 'Import updated' : 'Import created');
+        load(); closeModal();
       } else {
-        const error = await response.json();
-        toast.error(error.message || 'Error saving import');
+        const d = await res.json();
+        toast.error(d.error || 'Failed to save');
       }
-    } catch (error) {
-      toast.error('Error saving import');
-    }
-  };
-
-  const handleVendorSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('/api/vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(vendorData),
-      });
-
-      if (response.ok) {
-        const newVendor = await response.json();
-        setVendors([...vendors, newVendor]);
-        setFormData({ ...formData, vendor: newVendor._id });
-        toast.success('Vendor added successfully');
-        closeVendorModal();
-      } else {
-        toast.error('Error adding vendor');
-      }
-    } catch (error) {
-      toast.error('Error adding vendor');
-    }
-  };
-
-  const handleCSVUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const csv = e.target.result;
-        const lines = csv.split('\n');
-        const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-        
-        // Check for required headers
-        const itemDescIndex = headers.findIndex(h => h.includes('item_description') || h.includes('item description'));
-        const quantityIndex = headers.findIndex(h => h.includes('quantity'));
-        
-        if (itemDescIndex === -1 || quantityIndex === -1) {
-          toast.error('CSV must contain "item_description" and "quantity" columns');
-          return;
-        }
-
-        const newItems = [];
-        for (let i = 1; i < lines.length; i++) {
-          if (lines[i].trim()) {
-            const values = lines[i].split(',').map(v => v.trim());
-            const itemDescription = values[itemDescIndex]?.replace(/['"]/g, '');
-            const quantity = parseInt(values[quantityIndex]);
-            
-            if (itemDescription && quantity > 0) {
-              newItems.push({ itemDescription, quantity });
-            }
-          }
-        }
-
-        if (newItems.length > 0) {
-          setItems(newItems);
-          toast.success(`${newItems.length} items imported from CSV`);
-        } else {
-          toast.error('No valid items found in CSV');
-        }
-      } catch (error) {
-        toast.error('Error parsing CSV file');
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
-  };
-
-<<<<<<< HEAD
-=======
-  const downloadCSVFormat = () => {
-    const csvContent = 'item_description,quantity\nSample Item 1,5\nSample Item 2,3\n';
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'import_items_template.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
->>>>>>> blackboxai/login-mongodb-fix
-  const addItem = () => {
-    setItems([...items, { itemDescription: '', quantity: 1 }]);
-  };
-
-  const removeItem = (index) => {
-    if (items.length > 1) {
-      setItems(items.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateItem = (index, field, value) => {
-    const newItems = [...items];
-    newItems[index][field] = field === 'quantity' ? parseInt(value) || 1 : value;
-    setItems(newItems);
-  };
-
-  const handleEdit = (item) => {
-    setEditingItem(item);
-    setFormData({
-      vendor: item.vendor._id || item.vendor,
-      country: item.country || '',
-      invoiceNumber: item.invoiceNumber || '',
-      trackingNumber: item.trackingNumber || '',
-      trackingLink: item.trackingLink || '',
-      dateOfShipping: item.dateOfShipping?.split('T')[0] || '',
-      dateOfReceiving: item.dateOfReceiving?.split('T')[0] || '',
-      amountDutyPaid: item.amountDutyPaid?.toString() || '',
-      paymentMode: item.paymentMode || 'cash',
-      bankName: item.bankName || '',
-      status: item.status || 'Enroute',
-      invoiceUpload: item.invoiceUpload || ''
-    });
-    setItems(item.items || [{ itemDescription: '', quantity: 1 }]);
-    setIsModalOpen(true);
+    } catch { toast.error('Network error'); }
   };
 
   const handleDelete = async (id) => {
-<<<<<<< HEAD
-    if (window.confirm('Are you sure you want to delete this import?')) {
-      try {
-        const response = await fetch(`/api/import?id=${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          toast.success('Import deleted successfully');
-          fetchImports();
-=======
-    if (window.confirm('Are you sure you want to delete this import? This will also delete all related entries from Pending, Shipping, and Expense trackers.')) {
-      try {
-        const response = await fetch(`/api/import?id=${id}`, { method: 'DELETE' });
-        if (response.ok) {
-          const result = await response.json();
-          toast.success(
-            `Import deleted successfully!\n` +
-            `Removed: ${result.cascadeResults?.pending || 0} pending, ` +
-            `${result.cascadeResults?.shipping || 0} shipping, ` +
-            `${result.cascadeResults?.expense || 0} expense entries`,
-            { duration: 5000 }
-          );
-          fetchData();
->>>>>>> blackboxai/login-mongodb-fix
-        } else {
-          toast.error('Error deleting import');
-        }
-      } catch (error) {
-        toast.error('Error deleting import');
-      }
-    }
+    if (!window.confirm('Delete this import?')) return;
+    const res = await fetch(`/api/import?id=${id}`, { method: 'DELETE' });
+    if (res.ok) { toast.success('Deleted'); load(); }
+    else toast.error('Delete failed');
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingItem(null);
-    setFormData({
-      vendor: '',
-      country: '',
-      invoiceNumber: '',
-      trackingNumber: '',
-      trackingLink: '',
-      dateOfShipping: new Date().toISOString().split('T')[0],
-      dateOfReceiving: '',
-      amountDutyPaid: '',
-      paymentMode: 'cash',
-      bankName: '',
-      status: 'Enroute',
-      invoiceUpload: ''
+  const openEdit = (item) => {
+    setEditing(item);
+    setForm({
+      vendorId:        item.vendor?._id || '',
+      vendorName:      item.vendorName  || item.vendor?.company || '',
+      country:         item.country     || '',
+      invoiceNumber:   item.invoiceNumber  || '',
+      trackingNumber:  item.trackingNumber || '',
+      trackingLink:    item.trackingLink   || '',
+      dateOfShipping:  item.dateOfShipping  ? item.dateOfShipping.slice(0,10)  : '',
+      dateOfReceiving: item.dateOfReceiving ? item.dateOfReceiving.slice(0,10) : '',
+      amountDutyPaid:  item.amountDutyPaid  || '',
+      paymentMode:     item.paymentMode     || 'cash',
+      status:          item.status          || 'Enroute',
+      items:           item.items?.length ? item.items : [{ itemDescription: '', quantity: 1 }],
     });
-    setItems([{ itemDescription: '', quantity: 1 }]);
+    setModalOpen(true);
   };
 
-  const closeVendorModal = () => {
-    setIsVendorModalOpen(false);
-    setVendorData({
-      company: '',
-      salespersonName: '',
-      contact: '',
-      email: '',
-      address: '',
-      products: []
-    });
-  };
+  const closeModal = () => { setModalOpen(false); setEditing(null); setForm(empty); };
+  const addItem    = () => setForm(f => ({ ...f, items: [...f.items, { itemDescription: '', quantity: 1 }] }));
+  const removeItem = (i) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
+  const updateItem = (i, field, val) => setForm(f => ({
+    ...f, items: f.items.map((it, idx) => idx === i ? { ...it, [field]: val } : it),
+  }));
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Received': return 'bg-green-100 text-green-800';
-      case 'Enroute': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getTotalItems = (items) => {
-    return items?.reduce((total, item) => total + (item.quantity || 0), 0) || 0;
-  };
-
-  if (!session) return null;
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center gap-3 text-muted-foreground">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <span className="text-sm font-medium">Loading…</span>
+      </div>
+    </div>
+  );
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Import Tracker</h1>
-<<<<<<< HEAD
-            <p className="mt-2 text-gray-600">Manage and track all imports with automated expense and pending tracking</p>
-          </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
-          >
-            <PlusIcon className="w-5 h-5 mr-2" />
-            Add Import
-          </button>
-        </div>
+      <div className="space-y-5">
 
-=======
-            <p className="mt-2 text-gray-600">
-              {activeTab === 'enroute'
-                ? 'Manage and track imports currently in transit'
-                : 'View and manage received imports with automated expense tracking'}
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Import Tracker</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {enrouteCount} en route · {receivedCount} received
             </p>
           </div>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setFilterVisible(!filterVisible)}
-              className={`px-4 py-2 rounded-lg flex items-center transition-colors relative ${
-                filterVisible
-                  ? 'bg-green-600 text-white hover:bg-green-700'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              <FunnelIcon className="w-5 h-5 mr-2" />
-              Filters
-              {getActiveFiltersCount() > 0 && (
-                <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
-                  {getActiveFiltersCount()}
-                </span>
-              )}
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={() => exportImports(filtered)} disabled={!filtered.length}
+              className="btn btn-ghost text-sm">
+              <ArrowDownTrayIcon className="w-4 h-4" /> Export
             </button>
-            <button
-              onClick={() => exportImports(filteredImports)}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 flex items-center"
-            >
-              <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
-              Export
-            </button>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
-            >
-              <PlusIcon className="w-5 h-5 mr-2" />
-              Add Import
+            <button onClick={() => setModalOpen(true)} className="btn btn-primary text-sm">
+              <PlusIcon className="w-4 h-4" /> New Import
             </button>
           </div>
         </div>
 
-        {/* Tabs Section */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-1 flex space-x-1">
-          <button
-            onClick={() => handleTabChange('enroute')}
-            className={`flex-1 px-6 py-3 rounded-md font-medium transition-all ${
-              activeTab === 'enroute'
-                ? 'bg-yellow-500 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <div className="flex items-center justify-center">
-              <ClockIcon className="w-5 h-5 mr-2" />
-              <span>Enroute</span>
-              <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                activeTab === 'enroute'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-gray-200 text-gray-700'
-              }`}>
-                {imports.filter(imp => imp.status === 'Enroute').length}
-              </span>
-            </div>
-          </button>
-          <button
-            onClick={() => handleTabChange('received')}
-            className={`flex-1 px-6 py-3 rounded-md font-medium transition-all ${
-              activeTab === 'received'
-                ? 'bg-green-600 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <div className="flex items-center justify-center">
-              <CheckIcon className="w-5 h-5 mr-2" />
-              <span>Received</span>
-              <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
-                activeTab === 'received'
-                  ? 'bg-white/20 text-white'
-                  : 'bg-gray-200 text-gray-700'
-              }`}>
-                {imports.filter(imp => imp.status === 'Received').length}
-              </span>
-            </div>
-          </button>
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Total</p>
+            <p className="text-2xl font-black text-foreground">{imports.length}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">En Route</p>
+            <p className="text-2xl font-black text-blue-600">{enrouteCount}</p>
+          </div>
+          <div className="stat-card">
+            <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wide mb-1">Received</p>
+            <p className="text-2xl font-black text-emerald-600">{receivedCount}</p>
+          </div>
         </div>
 
-        {/* Filter Section */}
-        {filterVisible && (
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Filter Imports</h3>
-              <button
-                onClick={clearFilters}
-                className="text-sm text-green-600 hover:text-green-800 font-medium"
-              >
-                Clear All
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Search */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={filters.searchText}
-                    onChange={(e) => setFilters({ ...filters, searchText: e.target.value })}
-                    placeholder="Search imports..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              {/* Status Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={filters.status}
-                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="all">All Status</option>
-                  {activeTab === 'enroute' ? (
-                    <option value="Enroute">Enroute</option>
-                  ) : (
-                    <option value="Received">Received</option>
-                  )}
-                </select>
-              </div>
-
-              {/* Vendor Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Vendor</label>
-                <select
-                  value={filters.vendor}
-                  onChange={(e) => setFilters({ ...filters, vendor: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="all">All Vendors</option>
-                  {vendors.map((vendor) => (
-                    <option key={vendor._id} value={vendor._id}>{vendor.company}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Country Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-                <select
-                  value={filters.country}
-                  onChange={(e) => setFilters({ ...filters, country: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="all">All Countries</option>
-                  {getUniqueCountries().map((country) => (
-                    <option key={country} value={country}>{country}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Payment Mode Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Mode</label>
-                <select
-                  value={filters.paymentMode}
-                  onChange={(e) => setFilters({ ...filters, paymentMode: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="all">All Payment Modes</option>
-                  {paymentAccounts.map((account) => (
-                    <option key={account.value} value={account.value}>{account.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Start Date Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                <input
-                  type="date"
-                  value={filters.startDate}
-                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* End Date Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                <input
-                  type="date"
-                  value={filters.endDate}
-                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Results Count */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-sm text-gray-600">
-                Showing <span className="font-semibold text-gray-900">{filteredImports.length}</span> of{' '}
-                <span className="font-semibold text-gray-900">
-                  {activeTab === 'enroute'
-                    ? imports.filter(imp => imp.status === 'Enroute').length
-                    : imports.filter(imp => imp.status === 'Received').length}
-                </span> {activeTab === 'enroute' ? 'enroute imports' : 'received imports'}
-              </p>
-            </div>
+        {/* ── Filters ── */}
+        <div className="glass-card p-4 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input type="text" placeholder="Search vendor, invoice, or item…" value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                         focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
-        )}
+          <select value={statusF} onChange={e => setStatusF(e.target.value)}
+            className="px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                       focus:outline-none focus:ring-2 focus:ring-primary">
+            <option value="all">All Status</option>
+            <option value="Enroute">Enroute</option>
+            <option value="Received">Received</option>
+          </select>
+        </div>
 
->>>>>>> blackboxai/login-mongodb-fix
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center">Loading...</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sr. No.</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
-<<<<<<< HEAD
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-=======
->>>>>>> blackboxai/login-mongodb-fix
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tracking</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shipping Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duty Paid</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-<<<<<<< HEAD
-                  {imports.map((importItem) => (
-                    <tr key={importItem._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {importItem.srNo}
+        {/* ── Table ── */}
+        <div className="glass-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="tracker-table">
+              <thead>
+                <tr>
+                  <th>Serial</th>
+                  <th>Vendor</th>
+                  <th>Invoice</th>
+                  <th>Country</th>
+                  <th>Ship Date</th>
+                  <th style={{textAlign:'right'}}>Duty (AED)</th>
+                  <th>Items</th>
+                  <th>Status</th>
+                  <th style={{textAlign:'right'}}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(imp => (
+                  <>
+                    <tr key={imp._id}>
+                      <td className="font-mono text-xs text-muted-foreground">{imp.serialNumber || '—'}</td>
+                      <td>
+                        <p className="font-semibold text-foreground">{imp.vendorName || imp.vendor?.company}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{imp.paymentMode}</p>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div>{importItem.vendorName}</div>
-                        {importItem.vendor?.salespersonName && (
-                          <div className="text-xs text-gray-500">{importItem.vendor.salespersonName}</div>
-                        )}
+                      <td className="font-mono text-sm">{imp.invoiceNumber || '—'}</td>
+                      <td className="text-sm">{imp.country || '—'}</td>
+                      <td className="text-sm text-muted-foreground">
+                        {imp.dateOfShipping ? new Date(imp.dateOfShipping).toLocaleDateString() : '—'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.country}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                        <div className="space-y-1">
-                          {importItem.items?.map((item, index) => (
-                            <div key={index} className="text-xs">
-                              <span className="font-medium">{item.quantity}x</span> {item.itemDescription}
-                            </div>
-                          )) || <span className="text-gray-400">No items</span>}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          Total: {getTotalItems(importItem.items)} items
-                        </div>
+                      <td className="text-right font-mono text-sm font-semibold">
+                        {imp.amountDutyPaid > 0
+                          ? <span className="text-red-600">{imp.amountDutyPaid.toLocaleString()}</span>
+                          : <span className="text-muted-foreground">—</span>}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.invoiceNumber}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {importItem.trackingNumber && (
-                          <div>
-                            <div className="font-medium">{importItem.trackingNumber}</div>
-                            {importItem.trackingLink && (
-                              <a href={importItem.trackingLink} target="_blank" rel="noopener noreferrer" 
-                                 className="text-blue-500 text-xs hover:underline">Track</a>
-                            )}
-                          </div>
-                        )}
+                      <td>
+                        <button onClick={() => setExpanded(expanded === imp._id ? null : imp._id)}
+                          className="flex items-center gap-1 text-sm text-primary hover:underline font-medium">
+                          {imp.items?.length || 0} items
+                          {expanded === imp._id
+                            ? <ChevronUpIcon className="w-3.5 h-3.5" />
+                            : <ChevronDownIcon className="w-3.5 h-3.5" />}
+                        </button>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(importItem.dateOfShipping).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div>AED {importItem.amountDutyPaid || 0}</div>
-                        {importItem.amountDutyPaid > 0 && (
-                          <div className="text-xs text-gray-500">
-                            {importItem.paymentMode === 'bank' ? `Bank: ${importItem.bankName}` : 'Cash'}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(importItem.status)}`}>
-                          {importItem.status}
+                      <td>
+                        <span className={`badge ${imp.status === 'Received' ? 'badge-success' : 'badge-info'}`}>
+                          {imp.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(importItem)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
+                      <td>
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => openEdit(imp)} title="Edit"
+                            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-primary transition-colors">
                             <PencilIcon className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(importItem._id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
+                          <button onClick={() => handleDelete(imp._id)} title="Delete"
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors">
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              {imports.length === 0 && (
-                <div className="p-8 text-center text-gray-500">
-                  No imports found. Add your first import to get started.
-=======
-                  {filteredImports.map((importItem) => (
-                    <>
-                      <tr key={importItem._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {importItem.srNo}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          <div>{importItem.vendorName}</div>
-                          {importItem.vendor?.salespersonName && (
-                            <div className="text-xs text-gray-500">{importItem.vendor.salespersonName}</div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.country}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.invoiceNumber}</td>
-                        <td className="px-6 py-4 text-sm text-gray-900">
-                          {importItem.trackingNumber && (
-                            <div>
-                              <div className="font-medium">{importItem.trackingNumber}</div>
-                              {importItem.trackingLink && (
-                                <a href={importItem.trackingLink} target="_blank" rel="noopener noreferrer"
-                                   className="text-blue-500 text-xs hover:underline">Track</a>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(importItem.dateOfShipping).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div>AED {importItem.amountDutyPaid || 0}</div>
-                          {importItem.amountDutyPaid > 0 && (
-                            <div className="text-xs text-gray-500">
-                              {importItem.paymentMode === 'bank' ? `Bank: ${importItem.bankName}` : 'Cash'}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(importItem.status)}`}>
-                            {importItem.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => setExpandedImportId(expandedImportId === importItem._id ? null : importItem._id)}
-                              className="text-green-600 hover:text-green-900 flex items-center gap-1 text-xs font-medium"
-                              title="View Items"
-                            >
-                              {expandedImportId === importItem._id
-                                ? <ChevronUpIcon className="w-4 h-4" />
-                                : <ChevronDownIcon className="w-4 h-4" />}
-                              {getTotalItems(importItem.items)} items
-                            </button>
-                            <button
-                              onClick={() => handleEdit(importItem)}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Edit"
-                            >
-                              <PencilIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(importItem._id)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Delete"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
+
+                    {expanded === imp._id && (
+                      <tr key={`${imp._id}-exp`} className="bg-muted/20">
+                        <td colSpan={9} className="px-6 py-3">
+                          <div className="space-y-1.5">
+                            {(imp.items || []).map((item, idx) => (
+                              <div key={idx} className="flex items-center gap-3 text-sm">
+                                <span className="text-muted-foreground w-5 text-right font-mono">{idx + 1}.</span>
+                                <span className="text-foreground font-medium flex-1">{item.itemDescription}</span>
+                                <span className="text-muted-foreground text-xs">Qty: {item.quantity}</span>
+                              </div>
+                            ))}
+                            {imp.trackingNumber && (
+                              <p className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
+                                Tracking: <span className="font-mono">{imp.trackingNumber}</span>
+                                {imp.trackingLink && (
+                                  <a href={imp.trackingLink} target="_blank" rel="noreferrer"
+                                    className="ml-2 text-primary underline">View →</a>
+                                )}
+                              </p>
+                            )}
                           </div>
                         </td>
                       </tr>
-                      {expandedImportId === importItem._id && (
-                        <tr key={`${importItem._id}-items`} className="bg-green-50">
-                          <td colSpan={9} className="px-6 py-4">
-                            <div className="text-sm font-medium text-gray-700 mb-2">
-                              Items — {importItem.vendorName} / Invoice: {importItem.invoiceNumber}
-                            </div>
-                            <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-md overflow-hidden">
-                              <thead className="bg-gray-100">
-                                <tr>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item Description</th>
-                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-100">
-                                {importItem.items && importItem.items.length > 0 ? (
-                                  importItem.items.map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-50">
-                                      <td className="px-4 py-2 text-sm text-gray-500">{idx + 1}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-900">{item.itemDescription}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
-                                    </tr>
-                                  ))
-                                ) : (
-                                  <tr>
-                                    <td colSpan={3} className="px-4 py-2 text-sm text-gray-500 text-center">No items</td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  ))}
-                </tbody>
-              </table>
-              {filteredImports.length === 0 && (
-                <div className="p-8 text-center text-gray-500">
-                  {imports.length === 0
-                    ? 'No imports found. Add your first import to get started.'
-                    : activeTab === 'enroute'
-                    ? 'No enroute imports match your filters. Try adjusting your search criteria.'
-                    : 'No received imports match your filters. Try adjusting your search criteria.'}
->>>>>>> blackboxai/login-mongodb-fix
-                </div>
+                    )}
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {!filtered.length && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
+                <DocumentArrowUpIcon className="w-7 h-7 text-teal-500" />
+              </div>
+              <p className="font-semibold text-foreground">No imports found</p>
+              <p className="text-sm text-muted-foreground mt-1 mb-4">
+                {search || statusF !== 'all' ? 'Try adjusting your filters.' : 'Create your first import record.'}
+              </p>
+              {!search && statusF === 'all' && (
+                <button onClick={() => setModalOpen(true)} className="btn btn-primary text-sm">
+                  <PlusIcon className="w-4 h-4" /> New Import
+                </button>
               )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Import Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen p-4">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={closeModal} />
-            <div className="relative bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h3 className="text-lg font-medium text-gray-900">
-                  {editingItem ? 'Edit Import' : 'Add Import'}
-                </h3>
-                <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="w-6 h-6" />
+      {/* ── Modal ── */}
+      {modalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-card w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl">
+
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
+              <h2 className="text-lg font-bold text-foreground">
+                {editing ? 'Edit Import' : 'New Import'}
+              </h2>
+              <button onClick={closeModal}
+                className="p-1.5 rounded-lg hover:bg-accent transition-colors">
+                <XMarkIcon className="w-5 h-5 text-muted-foreground" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Vendor <span className="text-red-500">*</span>
+                  </label>
+                  <select required value={form.vendorId}
+                    onChange={e => {
+                      const v = vendors.find(x => x._id === e.target.value);
+                      setForm(f => ({ ...f, vendorId: e.target.value, vendorName: v?.company || '' }));
+                    }}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary">
+                    <option value="">— Select vendor —</option>
+                    {vendors.map(v => <option key={v._id} value={v._id}>{v.company}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Country <span className="text-red-500">*</span>
+                  </label>
+                  <input type="text" required value={form.country}
+                    onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
+                    placeholder="e.g. China"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Invoice Number <span className="text-red-500">*</span>
+                  </label>
+                  <input type="text" required value={form.invoiceNumber}
+                    onChange={e => setForm(f => ({ ...f, invoiceNumber: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Tracking Number</label>
+                  <input type="text" value={form.trackingNumber}
+                    onChange={e => setForm(f => ({ ...f, trackingNumber: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Tracking Link</label>
+                <input type="url" value={form.trackingLink}
+                  onChange={e => setForm(f => ({ ...f, trackingLink: e.target.value }))}
+                  placeholder="https://…"
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">
+                    Date of Shipping <span className="text-red-500">*</span>
+                  </label>
+                  <input type="date" required value={form.dateOfShipping}
+                    onChange={e => setForm(f => ({ ...f, dateOfShipping: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Date of Receiving</label>
+                  <input type="date" value={form.dateOfReceiving}
+                    onChange={e => setForm(f => ({ ...f, dateOfReceiving: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Duty Amount (AED)</label>
+                  <input type="number" min="0" step="0.01" value={form.amountDutyPaid}
+                    onChange={e => setForm(f => ({ ...f, amountDutyPaid: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Payment Mode</label>
+                  <select value={form.paymentMode}
+                    onChange={e => setForm(f => ({ ...f, paymentMode: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                               focus:outline-none focus:ring-2 focus:ring-primary">
+                    {PAYMENT_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Status</label>
+                <select value={form.status}
+                  onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                  className="w-full px-3 py-2.5 border border-border rounded-lg bg-background text-foreground text-sm
+                             focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="Enroute">Enroute</option>
+                  <option value="Received">Received</option>
+                </select>
+              </div>
+
+              {/* Items */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold text-foreground">Items</label>
+                  <button type="button" onClick={addItem}
+                    className="text-xs text-primary hover:underline font-semibold flex items-center gap-1">
+                    <PlusIcon className="w-3.5 h-3.5" /> Add Item
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {form.items.map((item, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <input type="text" placeholder={`Item ${idx + 1} description`}
+                        value={item.itemDescription}
+                        onChange={e => updateItem(idx, 'itemDescription', e.target.value)}
+                        className="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary" />
+                      <input type="number" min="1" value={item.quantity} style={{width:'80px'}}
+                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
+                        className="px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary" />
+                      {form.items.length > 1 && (
+                        <button type="button" onClick={() => removeItem(idx)}
+                          className="p-2 rounded-lg hover:bg-red-50 text-red-500 transition-colors flex-shrink-0">
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2 border-t border-border">
+                <button type="submit" className="btn btn-primary flex-1">
+                  {editing ? 'Save Changes' : 'Create Import'}
+                </button>
+                <button type="button" onClick={closeModal} className="btn btn-secondary flex-1">
+                  Cancel
                 </button>
               </div>
-              
-              <form onSubmit={handleSubmit} className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
-                    <div className="flex space-x-2">
-                      <select
-                        required
-                        value={formData.vendor}
-                        onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      >
-                        <option value="">Select Vendor</option>
-                        {vendors.map((vendor) => (
-                          <option key={vendor._id} value={vendor._id}>
-                            {vendor.company} - {vendor.salespersonName}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => setIsVendorModalOpen(true)}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                        title="Add New Vendor"
-                      >
-                        <UserPlusIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.country}
-                      onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Items Section */}
-                <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Items</label>
-                    <div className="flex space-x-2">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleCSVUpload}
-                        accept=".csv"
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-<<<<<<< HEAD
-=======
-                        onClick={downloadCSVFormat}
-                        className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm flex items-center"
-                        title="Download CSV Template"
-                      >
-                        <ArrowDownTrayIcon className="w-4 h-4 mr-1" />
-                        CSV Format
-                      </button>
-                      <button
-                        type="button"
->>>>>>> blackboxai/login-mongodb-fix
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm flex items-center"
-                      >
-                        <DocumentArrowUpIcon className="w-4 h-4 mr-1" />
-                        Import CSV
-                      </button>
-                      <button
-                        type="button"
-                        onClick={addItem}
-                        className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-                      >
-                        Add Item
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-3 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-4">
-                    {items.map((item, index) => (
-                      <div key={index} className="flex items-center space-x-3">
-                        <input
-                          type="text"
-                          required
-                          placeholder="Item Description"
-                          value={item.itemDescription}
-                          onChange={(e) => updateItem(index, 'itemDescription', e.target.value)}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        <input
-                          type="number"
-                          required
-                          min="1"
-                          placeholder="Qty"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                          className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                        />
-                        {items.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeItem(index)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <XMarkIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Invoice Number</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.invoiceNumber}
-                      onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
-                    <input
-                      type="text"
-                      value={formData.trackingNumber}
-                      onChange={(e) => setFormData({ ...formData, trackingNumber: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Link</label>
-                    <input
-                      type="url"
-                      value={formData.trackingLink}
-                      onChange={(e) => setFormData({ ...formData, trackingLink: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Shipping</label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.dateOfShipping}
-                      onChange={(e) => setFormData({ ...formData, dateOfShipping: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Receiving</label>
-                    <input
-                      type="date"
-                      value={formData.dateOfReceiving}
-                      onChange={(e) => setFormData({ ...formData, dateOfReceiving: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount/Duty Paid</label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={formData.amountDutyPaid}
-                      onChange={(e) => setFormData({ ...formData, amountDutyPaid: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode</label>
-                    <select
-                      value={formData.paymentMode}
-                      onChange={(e) => setFormData({ ...formData, paymentMode: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      {paymentAccounts.map((account) => (
-                        <option key={account.value} value={account.value}>
-                          {account.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {formData.paymentMode === 'bank' && (
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
-                      <input
-                        type="text"
-                        value={formData.bankName}
-                        onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                      <option value="Enroute">Enroute</option>
-                      <option value="Received">Received</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                  >
-                    {editingItem ? 'Update' : 'Add'} Import
-                  </button>
-                </div>
-              </form>
-            </div>
+            </form>
           </div>
         </div>
       )}
-
-      {/* Vendor Modal */}
-      {isVendorModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen p-4">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={closeVendorModal} />
-            <div className="relative bg-white rounded-lg max-w-2xl w-full">
-              <div className="flex items-center justify-between p-6 border-b">
-                <h3 className="text-lg font-medium text-gray-900">Add New Vendor</h3>
-                <button onClick={closeVendorModal} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <form onSubmit={handleVendorSubmit} className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={vendorData.company}
-                      onChange={(e) => setVendorData({ ...vendorData, company: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Salesperson Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={vendorData.salespersonName}
-                      onChange={(e) => setVendorData({ ...vendorData, salespersonName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
-                    <input
-                      type="text"
-                      required
-                      value={vendorData.contact}
-                      onChange={(e) => setVendorData({ ...vendorData, contact: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
-                    <input
-                      type="email"
-                      value={vendorData.email}
-                      onChange={(e) => setVendorData({ ...vendorData, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                  <textarea
-                    required
-                    value={vendorData.address}
-                    onChange={(e) => setVendorData({ ...vendorData, address: e.target.value })}
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={closeVendorModal}
-                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                  >
-                    Add Vendor
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-<<<<<<< HEAD
-=======
-
->>>>>>> blackboxai/login-mongodb-fix
     </DashboardLayout>
   );
 }
