@@ -7,7 +7,7 @@ import Pending from '@/models/Pending';
 import Expense from '@/models/Expense';
 import Import from '@/models/Import';
 import Shipping from '@/models/Shipping';
-import { Vendor } from '@/models/Purchase';
+import Vendor from '@/models/Vendor';
 
 // Helper function to check authentication
 async function isAuthenticated() {

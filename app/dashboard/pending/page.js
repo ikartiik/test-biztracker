@@ -5,30 +5,25 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
-<<<<<<< HEAD
-import { 
-  ClockIcon, 
+import {
+  ClockIcon,
   MagnifyingGlassIcon,
+  PlusIcon,
+  XMarkIcon,
+  ArrowDownTrayIcon,
   ExclamationTriangleIcon,
-  CheckCircleIcon,
   ArrowUpCircleIcon
 } from '@heroicons/react/24/outline';
-=======
-import { PlusIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { exportPending } from '@/lib/exportExcel';
->>>>>>> blackboxai/login-mongodb-fix
 
 export default function PendingTracker() {
   const { data: session } = useSession();
   const router = useRouter();
   const [pendingItems, setPendingItems] = useState([]);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
-=======
->>>>>>> blackboxai/login-mongodb-fix
 
   useEffect(() => {
     if (!session) {
@@ -40,59 +35,36 @@ export default function PendingTracker() {
 
   const fetchPendingItems = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/pending');
       const data = await response.json();
       setPendingItems(data);
     } catch (error) {
-      toast.error('Error fetching pending items');
+      toast.error('Failed to load pending items');
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePriorityChange = async (itemId, newPriority) => {
-    try {
-      const response = await fetch(`/api/pending?id=${itemId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority: newPriority }),
-      });
-
-      if (response.ok) {
-        toast.success('Priority updated successfully');
-        fetchPendingItems();
-      } else {
-        toast.error('Error updating priority');
-      }
-    } catch (error) {
-      toast.error('Error updating priority');
-    }
-  };
-
   const getPriorityColor = (priority) => {
     switch (priority) {
-<<<<<<< HEAD
-      case 'Critical': return 'badge-danger';
-      case 'Urgent': return 'badge-warning';
-      default: return 'badge-success';
+      case 'Critical': return 'bg-red-100 text-red-800 border-red-300';
+      case 'Urgent': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      default: return 'bg-green-100 text-green-800 border-green-300';
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Received': return 'badge-success';
-      case 'Shipped': return 'badge-info';
-      case 'Partially Shipped': return 'badge-warning';
-      case 'Enroute': return 'badge-info';
-      default: return 'badge-neutral';
+      case 'Received': return 'bg-emerald-100 text-emerald-800';
+      case 'Pending': return 'bg-amber-100 text-amber-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
-  // Filter pending items
-  const filteredItems = pendingItems.filter(item => {
-    const matchesSearch = searchQuery === '' || 
-      item.itemDescription?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.srNo?.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredPendingItems = pendingItems.filter(item => {
+    const matchesSearch = item.itemDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          item.vendorName.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
     const matchesPriority = priorityFilter === 'all' || item.priority === priorityFilter;
@@ -100,246 +72,196 @@ export default function PendingTracker() {
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
-  // Calculate stats
-  const totalItems = pendingItems.length;
-  const criticalCount = pendingItems.filter(p => p.priority === 'Critical').length;
-  const urgentCount = pendingItems.filter(p => p.priority === 'Urgent').length;
   const totalQtyPending = pendingItems.reduce((sum, p) => sum + (p.qtyPending || 0), 0);
+  const urgentCount = pendingItems.filter(p => p.priority === 'Urgent').length;
+  const criticalCount = pendingItems.filter(p => p.priority === 'Critical').length;
 
-=======
-      case 'Critical': return 'bg-red-100 text-red-800 border-red-300';
-      case 'Urgent': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      default: return 'bg-green-100 text-green-800 border-green-300';
-    }
-  };
-
->>>>>>> blackboxai/login-mongodb-fix
+  if (loading) return <div className="p-8 text-center">Loading pending items...</div>;
   if (!session) return null;
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-<<<<<<< HEAD
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-3">
-              <ClockIcon className="w-8 h-8 text-amber-600" />
-              Pending Tracker
-            </h1>
-            <p className="mt-1 text-slate-600">Track and manage pending items from purchases and imports</p>
+            <h1 className="text-3xl font-bold text-foreground">Pending Tracker</h1>
+            <p className="text-muted-foreground mt-2">Track items awaiting action ({pendingItems.length} total)</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => exportPending(filteredPendingItems)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
+              disabled={filteredPendingItems.length === 0}
+            >
+              <ArrowDownTrayIcon className="w-4 h-4" />
+              Export
+            </button>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="card p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Total Pending</p>
-                <p className="text-2xl font-bold text-slate-900">{totalItems}</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="glass-card p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-amber-100 rounded-xl">
                 <ClockIcon className="w-6 h-6 text-amber-600" />
               </div>
-            </div>
-          </div>
-          <div className="card p-4">
-            <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Critical</p>
-                <p className="text-2xl font-bold text-red-600">{criticalCount}</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Pending Quantity</p>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+            </div>
+            <div className="text-3xl font-bold text-foreground">{totalQtyPending}</div>
+          </div>
+
+          <div className="glass-card p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-yellow-100 rounded-xl">
+                <ExclamationTriangleIcon className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Urgent Items</p>
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-foreground">{urgentCount}</div>
+          </div>
+
+          <div className="glass-card p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-100 rounded-xl">
                 <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
               </div>
-            </div>
-          </div>
-          <div className="card p-4">
-            <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">Urgent</p>
-                <p className="text-2xl font-bold text-amber-600">{urgentCount}</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center">
-                <ArrowUpCircleIcon className="w-6 h-6 text-amber-600" />
+                <p className="text-sm font-medium text-muted-foreground">Critical Items</p>
               </div>
             </div>
-          </div>
-          <div className="card p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Total Qty</p>
-                <p className="text-2xl font-bold text-slate-900">{totalQtyPending}</p>
-              </div>
-              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                <CheckCircleIcon className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
+            <div className="text-3xl font-bold text-foreground">{criticalCount}</div>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="card p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <div className="glass-card p-6">
+          <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
             <div className="relative flex-1">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search by item or serial number..."
+                placeholder="Search by item or vendor..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="input pl-10"
+                className="w-full pl-12 pr-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="input w-full sm:w-40"
-            >
-              <option value="all">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Received">Received</option>
-              <option value="Shipped">Shipped</option>
-              <option value="Partially Shipped">Partially Shipped</option>
-              <option value="Enroute">Enroute</option>
-            </select>
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="input w-full sm:w-40"
-            >
-              <option value="all">All Priority</option>
-              <option value="Critical">Critical</option>
-              <option value="Urgent">Urgent</option>
-              <option value="Not Urgent">Not Urgent</option>
-            </select>
+            <div className="flex gap-3">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="all">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Received">Received</option>
+              </select>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="px-4 py-3 border border-border rounded-xl bg-background focus:ring-2 focus:ring-primary focus:border-transparent"
+              >
+                <option value="all">All Priority</option>
+                <option value="Urgent">Urgent</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="table-container">
-          {loading ? (
-            <div className="p-8 text-center">
-              <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
-              <p className="text-slate-500 mt-2">Loading...</p>
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="empty-state">
-              <ClockIcon className="w-16 h-16 mx-auto text-slate-300" />
-              <p className="text-lg font-medium text-slate-500 mt-4">No pending items found</p>
-              <p className="text-sm text-slate-400">Items will appear here automatically from purchases and imports</p>
-            </div>
-          ) : (
-            <table className="table">
+        {/* Main Table */}
+        <div className="glass-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
               <thead>
-                <tr>
-                  <th>Sr. No.</th>
-                  <th>Item Description</th>
-                  <th>Qty Pending</th>
-                  <th>Shipment</th>
-                  <th>Status</th>
-                  <th>Priority</th>
+                <tr className="border-t border-border">
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Item Description
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Vendor
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Source
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Priority
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Qty Pending
+                  </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody>
-                {filteredItems.map((item) => (
-                  <tr key={item._id} className="hover:bg-slate-50">
-                    <td className="font-medium text-slate-900">{item.srNo}</td>
-                    <td className="text-slate-900">{item.itemDescription}</td>
-                    <td className="text-slate-900 font-medium">{item.qtyPending}</td>
-                    <td className="text-slate-600">{item.shipment}</td>
-                    <td>
-                      <span className={`badge ${getStatusColor(item.status)}`}>
+              <tbody className="divide-y divide-border">
+                {filteredPendingItems.map((item) => (
+                  <tr key={item._id} className="hover:bg-muted/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-foreground">{item.itemDescription}</div>
+                      <div className="text-sm text-muted-foreground">{item.category}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium">{item.vendorName}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                        item.source === 'Purchase' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {item.source}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getStatusColor(item.status)}`}>
                         {item.status}
                       </span>
                     </td>
-                    <td>
-                      <select
-                        value={item.priority}
-                        onChange={(e) => handlePriorityChange(item._id, e.target.value)}
-                        className={`input w-auto py-1 px-2 text-xs font-semibold rounded-full border-0 cursor-pointer ${getPriorityColor(item.priority)}`}
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${getPriorityColor(item.priority)}`}>
+                        {item.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="font-mono font-semibold text-lg text-primary">
+                        {item.qtyPending}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm">
+                      <button
+                        onClick={() => router.push(`/dashboard/shipping?pending=${item._id}`)}
+                        className="text-primary hover:underline flex items-center gap-1 justify-end"
                       >
-                        <option value="Not Urgent">Not Urgent</option>
-                        <option value="Urgent">Urgent</option>
-                        <option value="Critical">Critical</option>
-                      </select>
+                        Ship Items
+                        <ArrowUpCircleIcon className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
-        </div>
-
-        {/* Results count */}
-        {!loading && filteredItems.length > 0 && (
-          <p className="text-sm text-slate-500 text-right">
-            Showing {filteredItems.length} of {pendingItems.length} items
-          </p>
-        )}
-      </div>
-    </DashboardLayout>
-  );
-}
-
-=======
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Pending Tracker</h1>
-            <p className="mt-2 text-gray-600">Track and manage pending items</p>
           </div>
-          <button
-            onClick={() => exportPending(pendingItems)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
-          >
-            <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
-            Export
-          </button>
-        </div>
-
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          {loading ? (
-            <div className="p-8 text-center">Loading...</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sr. No.</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Description</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Pending</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shipment</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {pendingItems.map((item) => (
-                    <tr key={item._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.srNo}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.itemDescription}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.qtyPending}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.shipment}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <select
-                          value={item.priority}
-                          onChange={(e) => handlePriorityChange(item._id, e.target.value)}
-                          className={`px-3 py-1 text-xs font-semibold rounded-full border focus:outline-none focus:ring-2 focus:ring-offset-1 ${getPriorityColor(item.priority)}`}
-                        >
-                          <option value="Not Urgent">Not Urgent</option>
-                          <option value="Urgent">Urgent</option>
-                          <option value="Critical">Critical</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {pendingItems.length === 0 && (
-                <div className="p-8 text-center text-gray-500">
-                  No pending items found. Items will appear here automatically from purchases and imports.
-                </div>
-              )}
+          
+          {filteredPendingItems.length === 0 && !loading && (
+            <div className="text-center py-20">
+              <ClockIcon className="w-20 h-20 text-muted-foreground mx-auto mb-6" />
+              <h3 className="text-2xl font-bold text-foreground mb-3">No pending items</h3>
+              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                All items have been processed or shipped. Sync data from Purchase/Import trackers to see new pending items.
+              </p>
+              <button
+                onClick={fetchPendingItems}
+                className="bg-primary text-primary-foreground px-8 py-3 rounded-xl hover:bg-primary/90 font-semibold"
+              >
+                Refresh Data
+              </button>
             </div>
           )}
         </div>
@@ -347,4 +269,3 @@ export default function PendingTracker() {
     </DashboardLayout>
   );
 }
->>>>>>> blackboxai/login-mongodb-fix

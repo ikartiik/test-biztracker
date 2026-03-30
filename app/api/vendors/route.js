@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/route';
 import dbConnect from '@/lib/mongodb';
-import { Vendor } from '@/models/Purchase';
+import Vendor from '@/models/Vendor';
 
 // Helper function to check authentication
 async function isAuthenticated(req) {
