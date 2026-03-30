@@ -5,7 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
-import { PlusIcon, EyeIcon, TrashIcon, XMarkIcon, ArrowPathIcon, TruckIcon, FunnelIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, EyeIcon, TrashIcon, XMarkIcon, ArrowPathIcon, TruckIcon, FunnelIcon, MagnifyingGlassIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { exportShipping } from '@/lib/exportExcel';
 
 export default function ShippingTracker() {
   const { data: session } = useSession();
@@ -24,7 +25,6 @@ export default function ShippingTracker() {
   // Filter states
   const [filters, setFilters] = useState({
     status: 'all',
-    source: 'all',
     vendor: 'all',
     searchText: '',
     startDate: '',
@@ -64,11 +64,6 @@ export default function ShippingTracker() {
       filtered = filtered.filter(s => s.status === filters.status);
     }
 
-    // Source filter
-    if (filters.source !== 'all') {
-      filtered = filtered.filter(s => s.source === filters.source);
-    }
-
     // Vendor filter
     if (filters.vendor !== 'all') {
       filtered = filtered.filter(s => s.vendorName === filters.vendor);
@@ -99,7 +94,6 @@ export default function ShippingTracker() {
   const clearFilters = () => {
     setFilters({
       status: 'all',
-      source: 'all',
       vendor: 'all',
       searchText: '',
       startDate: '',
@@ -331,14 +325,6 @@ export default function ShippingTracker() {
     }
   };
 
-  const getSourceColor = (source) => {
-    switch (source) {
-      case 'Import': return 'bg-blue-100 text-blue-800';
-      case 'Local Purchase': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   if (!session) return null;
 
   return (
@@ -366,6 +352,13 @@ export default function ShippingTracker() {
                 Bulk Ship ({selectedItems.length})
               </button>
             )}
+            <button
+              onClick={() => exportShipping(filteredShippingEntries)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
+            >
+              <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
+              Export
+            </button>
             <button
               onClick={syncWithImportsPurchases}
               disabled={syncing}
@@ -418,20 +411,6 @@ export default function ShippingTracker() {
                   <option value="Not Shipped">Not Shipped</option>
                   <option value="Partially Shipped">Partially Shipped</option>
                   <option value="Shipped">Shipped</option>
-                </select>
-              </div>
-
-              {/* Source Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
-                <select
-                  value={filters.source}
-                  onChange={(e) => setFilters({ ...filters, source: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Sources</option>
-                  <option value="Import">Import</option>
-                  <option value="Local Purchase">Local Purchase</option>
                 </select>
               </div>
 
@@ -493,7 +472,6 @@ export default function ShippingTracker() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sr. No.</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item Description</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Quantity</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Shipped</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Remaining</th>
@@ -520,12 +498,6 @@ export default function ShippingTracker() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                         <div className="truncate">{entry.itemDescription}</div>
-                        <div className="text-xs text-gray-500">{entry.sourceSerialNumber}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getSourceColor(entry.source)}`}>
-                          {entry.source}
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {entry.totalQuantity}
@@ -687,11 +659,7 @@ export default function ShippingTracker() {
               <div className="p-6">
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
                   <h4 className="font-medium text-gray-900 mb-2">{selectedShipping.itemDescription}</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-600">Source:</span>
-                      <div className="font-medium">{selectedShipping.source}</div>
-                    </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600">Total Qty:</span>
                       <div className="font-medium">{selectedShipping.totalQuantity}</div>

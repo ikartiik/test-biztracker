@@ -5,7 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
-import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, DocumentArrowUpIcon, UserPlusIcon, FunnelIcon, MagnifyingGlassIcon, ClockIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, DocumentArrowUpIcon, UserPlusIcon, FunnelIcon, MagnifyingGlassIcon, ClockIcon, ShoppingCartIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { exportPurchases } from '@/lib/exportExcel';
 
 export default function PurchaseTracker() {
   const { data: session } = useSession();
@@ -439,6 +440,13 @@ export default function PurchaseTracker() {
                   {getActiveFiltersCount()}
                 </span>
               )}
+            </button>
+            <button
+              onClick={() => exportPurchases(filteredPurchases)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
+            >
+              <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
+              Export
             </button>
             <button
               onClick={() => setIsModalOpen(true)}

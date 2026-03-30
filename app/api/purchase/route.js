@@ -48,7 +48,7 @@ async function createPendingEntry(purchase) {
 }
 
 async function createExpenseEntry(purchase) {
-  if (purchase.status === 'Purchased' && purchase.paymentAccount) {
+  if (purchase.status === 'Purchased' && purchase.paymentAccount && purchase.totalInAED > 0) {
     const expenseEntry = new Expense({
       type: 'expense',
       category: 'LOCAL PURCHASE',
@@ -483,9 +483,10 @@ export async function DELETE(req) {
         const deletedExpense = await Expense.findByIdAndDelete(purchase.linkedExpenseId);
         cascadeResults.expense = deletedExpense ? 1 : 0;
       } else {
-        // Fallback: Delete by text matching (for old entries without linkedExpenseId)
+        // Fallback: Delete by linkedPurchaseId or text matching (for old entries)
         const deletedExpenses = await Expense.deleteMany({
           $or: [
+            { linkedPurchaseId: purchase._id },
             { remark: { $regex: `Purchase: ${purchase.itemDescription}`, $options: 'i' } },
             { remark: { $regex: purchase.serialNumber, $options: 'i' } },
             { sourceExpense: { $regex: `Purchase - ${purchase.itemDescription}`, $options: 'i' } }

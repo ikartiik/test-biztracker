@@ -1,20 +1,14 @@
-# Concentric Tracker Enhancement Plan
+# Design & Code Fix Plan - Concentric Tracker
+Status: 🚀 Implementation In Progress
 
-## Phase 1: Dark Mode Glassmorphism ✅
-- [✅] Update tailwind.config.js (darkMode, glass extensions)
-- [✅] Update globals.css (CSS vars, .glass utilities)
-- [✅] Add theme toggle to DashboardLayout.js (localStorage persist)
-- [✅] Refactor dashboard/page.js (glass cards, semantic colors, hovers)
+## Approved Plan Steps:
+- [x] 1. Create/Update TODO.md
+- [ ] 2. Fix tailwind.config.js (safelist, colors, v4 compat)
+- [ ] 3. Update app/globals.css (glassmorphism, animations, fallbacks)
+- [ ] 4. Test Tailwind rebuild (`npm run dev`)
+- [ ] 5. Verify design: glass effects, dark mode, charts, responsive
+- [ ] 6. Bonus: Hook charts to real stats data
+- [x] Complete: Previous cleanup steps
 
-## Phase 2: Charts & Analytics (In Progress)
-### TODO
-- [ ] Install recharts ✅ (user confirmed)
-- [ ] Add Expense Trend LineChart to dashboard
-- [ ] Add Vendor PieChart to dashboard
+Next: Tailwind config → CSS → Test
 
-## Testing ✅
-- [✅] Test light/dark toggle
-- [✅] Verify responsive glass effects
-
-## Next
-Bulk actions + reports after Phase 2.

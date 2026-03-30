@@ -146,8 +146,9 @@ PurchaseSchema.pre('save', async function(next) {
   };
 
   // Calculate AED amounts and totals
-  this.priceInAED = this.price * exchangeRates[this.currency];
-  this.total = this.price * this.quantity;
+  const price = (this.price != null && !isNaN(this.price)) ? this.price : 0;
+  this.priceInAED = price * exchangeRates[this.currency];
+  this.total = price * this.quantity;
   this.totalInAED = this.priceInAED * this.quantity;
 
   next();

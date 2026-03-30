@@ -2,28 +2,26 @@
 module.exports = {
   darkMode: 'class',
   content: [
-    './pages/**/*.{js,ts,jsx,tsx}',
-    './components/**/*.{js,ts,jsx,tsx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
-      backdropBlur: {
-        xs: '2px',
+      fontFamily: {
+        sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui'],
+        mono: ['var(--font-geist-mono)', 'ui-monospace'],
       },
-      colors: {
-        primary: {
-          50: '#eff6ff',
-          500: '#3b82f6',
-          600: '#2563eb',
-          900: '#1e3a8a',
+      animation: {
+        'slide-down': 'slide-down 0.25s ease-out',
+      },
+      keyframes: {
+        'slide-down': {
+          from: { opacity: '0', transform: 'translateY(-8px)' },
+          to:   { opacity: '1', transform: 'translateY(0)' },
         },
-        glass: {
-          bg: 'rgba(255, 255, 255, 0.1)',
-          darkBg: 'rgba(15, 23, 42, 0.8)',
-        }
-      }
+      },
     },
   },
   plugins: [],
-}
+};

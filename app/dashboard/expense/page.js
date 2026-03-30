@@ -341,35 +341,7 @@ export default function ExpenseTracker() {
       });
 
       if (response.ok) {
-        // Check if balance adjustment is for an FZ account - add 0.15% handling fee
-        const isBalanceAdjustmentToFZ = ['crown', 'sasco', 'other_fz'].includes(balanceData.account);
-
-        if (isBalanceAdjustmentToFZ) {
-          const handlingFeeAmount = parseFloat(balanceData.amount) * 0.0015; // 0.15%
-          const handlingFeePayload = {
-            type: 'expense',
-            category: 'FZ CHARGES',
-            account: balanceData.account, // Same FZ account
-            amount: handlingFeeAmount,
-            creditAmount: 0,
-            debitAmount: handlingFeeAmount,
-            remark: `Handling Fee (0.15%) for FZ balance adjustment`,
-            date: balanceData.date,
-            srNo: `FEE-${Date.now()}`
-          };
-
-          // Submit the handling fee transaction
-          await fetch('/api/expense', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(handlingFeePayload),
-          });
-
-          toast.success(`Balance adjusted with handling fee (${handlingFeeAmount.toFixed(2)} AED) for FZ account`);
-        } else {
-          toast.success('Balance adjusted successfully');
-        }
-
+        toast.success('Balance adjusted successfully');
         fetchExpenses();
         closeModal();
       } else {
@@ -928,11 +900,6 @@ export default function ExpenseTracker() {
                           </option>
                         ))}
                       </select>
-                      {['crown', 'sasco', 'other_fz'].includes(balanceData.account) && (
-                        <p className="mt-1 text-xs text-blue-600">
-                          Note: A 0.15% handling fee will be automatically added as a separate expense entry
-                        </p>
-                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -958,11 +925,6 @@ export default function ExpenseTracker() {
                           required
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
                         />
-                        {['crown', 'sasco', 'other_fz'].includes(balanceData.account) && balanceData.amount && (
-                          <p className="mt-1 text-xs text-amber-600">
-                            + {(parseFloat(balanceData.amount) * 0.0015).toFixed(2)} AED handling fee (0.15%) will be added as a separate entry
-                          </p>
-                        )}
                       </div>
                     </div>
 

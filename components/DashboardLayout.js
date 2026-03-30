@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   ShoppingCartIcon,
@@ -17,40 +17,51 @@ import {
   GlobeAltIcon,
   BuildingOfficeIcon,
   MoonIcon,
-  SunIcon
+  SunIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Squares2X2Icon,
 } from '@heroicons/react/24/outline';
 
 const allNavigation = [
-  { name: 'Purchase Tracker', href: '/dashboard/purchase', icon: ShoppingCartIcon, roles: ['admin', 'user'] },
-  { name: 'Import Tracker', href: '/dashboard/import', icon: GlobeAltIcon, roles: ['admin'] },
-  { name: 'Shipping Tracker', href: '/dashboard/shipping', icon: TruckIcon, roles: ['admin'] },
-  { name: 'Pending Tracker', href: '/dashboard/pending', icon: ClockIcon, roles: ['admin', 'user'] },
-  { name: 'Accounts Tracker', href: '/dashboard/expense', icon: CurrencyDollarIcon, roles: ['admin'] },
-  { name: 'Vendors', href: '/dashboard/vendors', icon: BuildingOfficeIcon, roles: ['admin'] },
-  { name: 'User Management', href: '/dashboard/users', icon: UserIcon, roles: ['admin'] },
+  { name: 'Dashboard',        href: '/dashboard',          icon: Squares2X2Icon,    roles: ['admin', 'user'] },
+  { name: 'Purchase Tracker', href: '/dashboard/purchase', icon: ShoppingCartIcon,  roles: ['admin', 'user'] },
+  { name: 'Import Tracker',   href: '/dashboard/import',   icon: GlobeAltIcon,      roles: ['admin'] },
+  { name: 'Shipping Tracker', href: '/dashboard/shipping', icon: TruckIcon,         roles: ['admin'] },
+  { name: 'Pending Tracker',  href: '/dashboard/pending',  icon: ClockIcon,         roles: ['admin', 'user'] },
+  { name: 'Accounts',         href: '/dashboard/expense',  icon: CurrencyDollarIcon,roles: ['admin'] },
+  { name: 'Vendors',          href: '/dashboard/vendors',  icon: BuildingOfficeIcon,roles: ['admin'] },
+  { name: 'Users',            href: '/dashboard/users',    icon: UserIcon,          roles: ['admin'] },
 ];
 
-export default function DashboardLayout({ children, activeTab = 'dashboard' }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isDark, setIsDark] = useState(false);
-  const { data: session } = useSession();
-  const router = useRouter();
+export default function DashboardLayout({ children }) {
+  const [mobileOpen, setMobileOpen]   = useState(false);
+  const [collapsed, setCollapsed]     = useState(false);
+  const [isDark, setIsDark]           = useState(false);
+  const { data: session }             = useSession();
+  const router                        = useRouter();
+  const pathname                      = usePathname();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme') === 'dark';
-      setIsDark(saved);
-      document.documentElement.classList.toggle('dark', saved);
-    }
+    if (typeof window === 'undefined') return;
+    const dark      = localStorage.getItem('theme') === 'dark';
+    const collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    setIsDark(dark);
+    setCollapsed(collapsed);
+    document.documentElement.classList.toggle('dark', dark);
   }, []);
 
   const toggleTheme = () => {
-    const newDark = !isDark;
-    setIsDark(newDark);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', newDark ? 'dark' : 'light');
-      document.documentElement.classList.toggle('dark', newDark);
-    }
+    const next = !isDark;
+    setIsDark(next);
+    localStorage.setItem('theme', next ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', next);
+  };
+
+  const toggleCollapsed = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem('sidebarCollapsed', String(next));
   };
 
   const handleSignOut = async () => {
@@ -58,119 +69,165 @@ export default function DashboardLayout({ children, activeTab = 'dashboard' }) {
     router.push('/login');
   };
 
-  // Filter navigation based on user role
-  const navigation = allNavigation.filter(item => 
+  const navigation = allNavigation.filter(item =>
     item.roles.includes(session?.user?.role?.toLowerCase() || 'user')
   );
 
+  const isActive = (href) =>
+    href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
+
+  const sidebarW = collapsed ? 'lg:w-[64px]' : 'lg:w-[220px]';
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar */}
-      <div className={`fixed inset-0 z-40 lg:hidden ${sidebarOpen ? '' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-        <div className="fixed inset-y-0 left-0 flex flex-col w-64 bg-white shadow-xl">
-          <div className="flex items-center justify-between h-16 px-4 bg-blue-600">
-            <h1 className="text-xl font-bold text-white">Tracker System</h1>
-            <button onClick={() => setSidebarOpen(false)} className="text-white">
-              <XMarkIcon className="w-6 h-6" />
-            </button>
-          </div>
-          <nav className="flex-1 px-4 py-4 space-y-2">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="group flex items-center px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 transition-colors"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <item.icon className="w-5 h-5 mr-3" />
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 flex">
 
-      {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between h-16 px-4 bg-gradient-to-r from-primary to-primary/80 backdrop-blur-md">
-            <Link href="/dashboard" className="text-xl font-bold text-primary-foreground">
-              Tracker System
+      {/* ── Mobile overlay ─────────────────────────────── */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Sidebar ────────────────────────────────────── */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 flex flex-col
+          bg-slate-900 dark:bg-gray-950
+          border-r border-slate-800 dark:border-gray-800
+          transition-[width] duration-200 ease-in-out overflow-hidden
+          ${sidebarW}
+          w-[220px]
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+      >
+        {/* Brand row */}
+        <div className={`flex items-center h-[56px] shrink-0 px-3 border-b border-slate-800 dark:border-gray-800 ${collapsed ? 'justify-center' : 'justify-between'}`}>
+          {!collapsed && (
+            <Link
+              href="/dashboard"
+              className="text-sm font-bold text-white truncate tracking-wide"
+              onClick={() => setMobileOpen(false)}
+            >
+              Concentric
             </Link>
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-xl bg-white/20 dark:bg-black/20 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-black/30 transition-all"
-              title="Toggle theme"
-            >
-              {isDark ? <SunIcon className="w-5 h-5 text-primary-foreground" /> : <MoonIcon className="w-5 h-5 text-primary-foreground" />}
-            </button>
-          </div>
-          <nav className="flex-1 px-4 py-4 space-y-2">
-            {navigation.map((item) => (
+          )}
+
+          {/* Desktop collapse toggle */}
+          <button
+            onClick={toggleCollapsed}
+            title={collapsed ? 'Expand' : 'Collapse'}
+            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          >
+            {collapsed
+              ? <ChevronRightIcon className="w-4 h-4" />
+              : <ChevronLeftIcon  className="w-4 h-4" />}
+          </button>
+
+          {/* Mobile close */}
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="lg:hidden p-1 rounded text-slate-400 hover:text-white"
+          >
+            <XMarkIcon className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Nav links */}
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+          {navigation.map((item) => {
+            const active = isActive(item.href);
+            return (
               <Link
                 key={item.name}
                 href={item.href}
-                className="group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors text-gray-700 hover:bg-gray-100"
+                onClick={() => setMobileOpen(false)}
+                title={collapsed ? item.name : undefined}
+                className={`
+                  group flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium
+                  transition-colors duration-150 whitespace-nowrap
+                  ${active
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-800 hover:text-white dark:hover:bg-gray-800'
+                  }
+                  ${collapsed ? 'justify-center' : ''}
+                `}
               >
-                <item.icon className="w-5 h-5 mr-3" />
-                {item.name}
+                <item.icon className="w-[18px] h-[18px] shrink-0" />
+                {!collapsed && <span>{item.name}</span>}
               </Link>
-            ))}
-          </nav>
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center mb-3">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <UserIcon className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700">{session?.user?.username}</p>
-                <p className="text-xs text-gray-500 capitalize">{session?.user?.role}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
-            >
-              <ArrowRightOnRectangleIcon className="w-4 h-4 mr-2" />
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </div>
+            );
+          })}
+        </nav>
 
-      {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Mobile header */}
-        <div className="flex items-center justify-between h-16 px-4 glass border-b dark:border-white/20 lg:hidden">
+        {/* Bottom: user + sign out */}
+        <div className="shrink-0 border-t border-slate-800 dark:border-gray-800 px-2 py-3 space-y-0.5">
+
+          {/* Theme toggle */}
           <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 text-foreground hover:bg-accent rounded-xl transition-colors"
+            onClick={toggleTheme}
+            title={isDark ? 'Light mode' : 'Dark mode'}
+            className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors ${collapsed ? 'justify-center' : ''}`}
           >
-            <Bars3Icon className="w-6 h-6" />
+            {isDark
+              ? <SunIcon  className="w-[18px] h-[18px] shrink-0" />
+              : <MoonIcon className="w-[18px] h-[18px] shrink-0" />}
+            {!collapsed && <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>}
           </button>
-          <Link href="/dashboard" className="text-lg font-semibold text-foreground">
-            Tracker System
-          </Link>
-          <div className="flex items-center space-x-2">
+
+          {/* User info row */}
+          {!collapsed && session?.user && (
+            <div className="px-2.5 py-2">
+              <p className="text-xs font-semibold text-white truncate capitalize">
+                {session.user.username}
+              </p>
+              <p className="text-xs text-slate-400 capitalize">{session.user.role}</p>
+            </div>
+          )}
+
+          {/* Sign out */}
+          <button
+            onClick={handleSignOut}
+            title="Sign out"
+            className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors ${collapsed ? 'justify-center' : ''}`}
+          >
+            <ArrowRightOnRectangleIcon className="w-[18px] h-[18px] shrink-0" />
+            {!collapsed && <span>Sign Out</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Content area ───────────────────────────────── */}
+      <div className={`flex-1 flex flex-col transition-[padding] duration-200 ${collapsed ? 'lg:pl-[64px]' : 'lg:pl-[220px]'}`}>
+
+        {/* Mobile top bar */}
+        <header className="lg:hidden sticky top-0 z-30 flex h-[56px] items-center gap-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-4 shadow-sm">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
+            <Bars3Icon className="w-5 h-5" />
+          </button>
+          <span className="text-sm font-bold text-gray-900 dark:text-white">Concentric</span>
+          <div className="ml-auto flex items-center gap-1">
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl bg-accent/50 hover:bg-accent rounded-xl transition-all"
-              title="Toggle theme"
+              className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               {isDark ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
             </button>
             <button
               onClick={handleSignOut}
-              className="p-2 text-foreground hover:bg-accent rounded-xl transition-colors"
+              className="p-1.5 rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+              title="Sign out"
             >
-              <ArrowRightOnRectangleIcon className="w-6 h-6" />
+              <ArrowRightOnRectangleIcon className="w-5 h-5" />
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Page content */}
-        <main className="p-4 lg:p-8">
+        {/* Main content */}
+        <main className="flex-1 p-5 lg:p-7 overflow-auto">
           {children}
         </main>
       </div>

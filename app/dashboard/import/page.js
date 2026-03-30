@@ -5,7 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
-import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, DocumentArrowUpIcon, UserPlusIcon, CloudArrowUpIcon, FunnelIcon, MagnifyingGlassIcon, ClockIcon, CheckIcon, EyeIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, DocumentArrowUpIcon, UserPlusIcon, CloudArrowUpIcon, FunnelIcon, MagnifyingGlassIcon, ClockIcon, CheckIcon, ArrowDownTrayIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import { exportImports } from '@/lib/exportExcel';
 
 export default function ImportTracker() {
   const { data: session } = useSession();
@@ -17,9 +18,8 @@ export default function ImportTracker() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
-  const [isItemsViewModalOpen, setIsItemsViewModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [viewingItems, setViewingItems] = useState(null);
+  const [expandedImportId, setExpandedImportId] = useState(null);
   const [items, setItems] = useState([{ itemDescription: '', quantity: 1 }]);
   const [filterVisible, setFilterVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('enroute'); // 'enroute' or 'received'
@@ -221,9 +221,6 @@ export default function ImportTracker() {
         toast.success(editingItem ? 'Import updated successfully' : 'Import added successfully');
         if (submitData.amountDutyPaid > 0) {
           toast.success('Expense entry created for duty payment');
-        }
-        if (submitData.status === 'Received') {
-          toast.success('Items added to pending tracker');
         }
         fetchData();
         closeModal();
@@ -454,6 +451,13 @@ export default function ImportTracker() {
               )}
             </button>
             <button
+              onClick={() => exportImports(filteredImports)}
+              className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 flex items-center"
+            >
+              <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
+              Export
+            </button>
+            <button
               onClick={() => setIsModalOpen(true)}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
             >
@@ -656,74 +660,109 @@ export default function ImportTracker() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredImports.map((importItem) => (
-                    <tr key={importItem._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {importItem.srNo}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div>{importItem.vendorName}</div>
-                        {importItem.vendor?.salespersonName && (
-                          <div className="text-xs text-gray-500">{importItem.vendor.salespersonName}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.country}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.invoiceNumber}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {importItem.trackingNumber && (
-                          <div>
-                            <div className="font-medium">{importItem.trackingNumber}</div>
-                            {importItem.trackingLink && (
-                              <a href={importItem.trackingLink} target="_blank" rel="noopener noreferrer" 
-                                 className="text-blue-500 text-xs hover:underline">Track</a>
-                            )}
+                    <>
+                      <tr key={importItem._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {importItem.srNo}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div>{importItem.vendorName}</div>
+                          {importItem.vendor?.salespersonName && (
+                            <div className="text-xs text-gray-500">{importItem.vendor.salespersonName}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.country}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.invoiceNumber}</td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {importItem.trackingNumber && (
+                            <div>
+                              <div className="font-medium">{importItem.trackingNumber}</div>
+                              {importItem.trackingLink && (
+                                <a href={importItem.trackingLink} target="_blank" rel="noopener noreferrer"
+                                   className="text-blue-500 text-xs hover:underline">Track</a>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(importItem.dateOfShipping).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div>AED {importItem.amountDutyPaid || 0}</div>
+                          {importItem.amountDutyPaid > 0 && (
+                            <div className="text-xs text-gray-500">
+                              {importItem.paymentMode === 'bank' ? `Bank: ${importItem.bankName}` : 'Cash'}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(importItem.status)}`}>
+                            {importItem.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => setExpandedImportId(expandedImportId === importItem._id ? null : importItem._id)}
+                              className="text-green-600 hover:text-green-900 flex items-center gap-1 text-xs font-medium"
+                              title="View Items"
+                            >
+                              {expandedImportId === importItem._id
+                                ? <ChevronUpIcon className="w-4 h-4" />
+                                : <ChevronDownIcon className="w-4 h-4" />}
+                              {getTotalItems(importItem.items)} items
+                            </button>
+                            <button
+                              onClick={() => handleEdit(importItem)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Edit"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(importItem._id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
                           </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(importItem.dateOfShipping).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <div>AED {importItem.amountDutyPaid || 0}</div>
-                        {importItem.amountDutyPaid > 0 && (
-                          <div className="text-xs text-gray-500">
-                            {importItem.paymentMode === 'bank' ? `Bank: ${importItem.bankName}` : 'Cash'}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(importItem.status)}`}>
-                          {importItem.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              setViewingItems(importItem);
-                              setIsItemsViewModalOpen(true);
-                            }}
-                            className="text-green-600 hover:text-green-900"
-                            title="View Items"
-                          >
-                            <EyeIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(importItem)}
-                            className="text-blue-600 hover:text-blue-900"
-                            title="Edit"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(importItem._id)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Delete"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                      {expandedImportId === importItem._id && (
+                        <tr key={`${importItem._id}-items`} className="bg-green-50">
+                          <td colSpan={9} className="px-6 py-4">
+                            <div className="text-sm font-medium text-gray-700 mb-2">
+                              Items — {importItem.vendorName} / Invoice: {importItem.invoiceNumber}
+                            </div>
+                            <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-md overflow-hidden">
+                              <thead className="bg-gray-100">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item Description</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-100">
+                                {importItem.items && importItem.items.length > 0 ? (
+                                  importItem.items.map((item, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50">
+                                      <td className="px-4 py-2 text-sm text-gray-500">{idx + 1}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">{item.itemDescription}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan={3} className="px-4 py-2 text-sm text-gray-500 text-center">No items</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>
@@ -1087,91 +1126,6 @@ export default function ImportTracker() {
         </div>
       )}
 
-      {/* Items View Modal */}
-      {isItemsViewModalOpen && viewingItems && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen p-4">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setIsItemsViewModalOpen(false)} />
-            <div className="relative bg-white rounded-lg max-w-3xl w-full">
-              <div className="flex items-center justify-between p-6 border-b">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900">Import Items</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {viewingItems.vendorName} - Invoice: {viewingItems.invoiceNumber}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsItemsViewModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <XMarkIcon className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="p-6">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          #
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Item Description
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Quantity
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {viewingItems.items && viewingItems.items.length > 0 ? (
-                        viewingItems.items.map((item, index) => (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {index + 1}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-900">
-                              {item.itemDescription}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {item.quantity}
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">
-                            No items found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Total Items:</span>
-                    <span className="font-semibold text-gray-900">
-                      {viewingItems.items?.reduce((sum, item) => sum + (item.quantity || 0), 0) || 0} items
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end p-6 border-t">
-                <button
-                  onClick={() => setIsItemsViewModalOpen(false)}
-                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </DashboardLayout>
   );
 }

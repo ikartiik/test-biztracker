@@ -10,541 +10,284 @@ import {
   ClockIcon,
   CurrencyDollarIcon,
   ArchiveBoxIcon,
+  BuildingOfficeIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
-  FireIcon,
-  BuildingOfficeIcon,
-  ChartBarIcon,
-  FunnelIcon,
-  CalendarIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline';
-import {
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
-} from 'recharts';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
-  const router = useRouter();
-  const [stats, setStats] = useState(null);
+  const router   = useRouter();
+  const [stats, setStats]     = useState(null);
   const [loading, setLoading] = useState(true);
-  const [filterVisible, setFilterVisible] = useState(false);
-  const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
-  const [activeFilter, setActiveFilter] = useState('all');
 
   useEffect(() => {
     if (status === 'loading') return;
-    if (!session) {
-      router.push('/login');
-    } else {
-      fetchStats();
-    }
+    if (!session) { router.push('/login'); return; }
+    fetchStats();
   }, [session, status, router]);
 
-  const fetchStats = async (filters = {}) => {
+  const fetchStats = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (filters.startDate) params.append('startDate', filters.startDate);
-      if (filters.endDate) params.append('endDate', filters.endDate);
-
-      const response = await fetch(`/api/dashboard/stats?${params}`);
-      const data = await response.json();
+      const res  = await fetch('/api/dashboard/stats');
+      const data = await res.json();
       setStats(data);
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
+    } catch (e) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  const applyDateFilter = () => {
-    fetchStats(dateFilter);
-    setFilterVisible(false);
-  };
-
-  const clearFilters = () => {
-    setDateFilter({ startDate: '', endDate: '' });
-    setActiveFilter('all');
-    fetchStats();
-  };
-
   if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-950">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
-          <p className="mt-4 text-gray-600 font-medium">Loading dashboard...</p>
+          <div className="inline-block animate-spin rounded-full h-9 w-9 border-4 border-blue-600 border-t-transparent" />
+          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Loading…</p>
         </div>
       </div>
     );
   }
+  if (!session) return null;
 
-  if (!session) {
-    return null;
-  }
+  const pending  = stats?.summary?.pending?.pending  || 0;
+  const urgent   = stats?.summary?.pending?.urgent   || 0;
+  const balance  = stats?.summary?.expenses?.balance || 0;
 
-  const quickStatsCards = [
+  const statCards = [
     {
-      name: 'Total Purchases',
+      label: 'Total Purchases',
       value: stats?.summary?.purchases?.total || 0,
-      amount: `AED ${(stats?.summary?.purchases?.totalAmount || 0).toLocaleString()}`,
-      icon: ShoppingCartIcon,
-      gradient: 'from-blue-500 to-blue-600',
-      bgGradient: 'from-blue-50 to-blue-100',
-      trend: '+12%',
-      trendUp: true,
-      href: '/dashboard/purchase'
+      sub:   `AED ${(stats?.summary?.purchases?.totalAmount || 0).toLocaleString()}`,
+      icon:  ShoppingCartIcon,
+      ring:  'border-blue-200 dark:border-blue-900',
+      badge: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+      href:  '/dashboard/purchase',
     },
     {
-      name: 'Pending Items',
-      value: stats?.summary?.pending?.pending || 0,
-      subtext: `${stats?.summary?.pending?.urgent || 0} Urgent`,
-      icon: ClockIcon,
-      gradient: 'from-yellow-500 to-orange-500',
-      bgGradient: 'from-yellow-50 to-orange-100',
-      trend: '-5%',
-      trendUp: false,
-      href: '/dashboard/pending'
+      label: 'Pending Items',
+      value: pending,
+      sub:   `${urgent} urgent`,
+      icon:  ClockIcon,
+      ring:  urgent > 0 ? 'border-red-200 dark:border-red-900' : 'border-amber-200 dark:border-amber-900',
+      badge: urgent > 0 ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+      href:  '/dashboard/pending',
+      alert: urgent > 0,
     },
     {
-      name: 'Total Expenses',
+      label: 'Total Expenses',
       value: `AED ${(stats?.summary?.expenses?.totalDebit || 0).toLocaleString()}`,
-      subtext: `Balance: ${(stats?.summary?.expenses?.balance || 0).toLocaleString()}`,
-      icon: CurrencyDollarIcon,
-      gradient: 'from-red-500 to-pink-600',
-      bgGradient: 'from-red-50 to-pink-100',
-      trend: '+8%',
-      trendUp: false,
-      href: '/dashboard/expense'
+      sub:   `Balance: AED ${balance.toLocaleString()}`,
+      icon:  CurrencyDollarIcon,
+      ring:  'border-green-200 dark:border-green-900',
+      badge: 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+      href:  '/dashboard/expense',
     },
     {
-      name: 'Shipments',
+      label: 'Shipments',
       value: stats?.summary?.shipping?.total || 0,
-      subtext: `${stats?.summary?.shipping?.totalQuantity || 0} items shipped`,
-      icon: TruckIcon,
-      gradient: 'from-purple-500 to-indigo-600',
-      bgGradient: 'from-purple-50 to-indigo-100',
-      trend: '+15%',
-      trendUp: true,
-      href: '/dashboard/shipping'
+      sub:   `${stats?.summary?.shipping?.totalQuantity || 0} items`,
+      icon:  TruckIcon,
+      ring:  'border-purple-200 dark:border-purple-900',
+      badge: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+      href:  '/dashboard/shipping',
     },
   ];
 
-  // Mock chart data (enhance with API later)
-  const expenseData = [
-    { month: 'Jan', expenses: 4000, credits: 2400 },
-    { month: 'Feb', expenses: 3000, credits: 1398 },
-    { month: 'Mar', expenses: 2000, credits: 9800 },
-    { month: 'Apr', expenses: 2780, credits: 3908 },
-    { month: 'May', expenses: 1890, credits: 4800 },
-    { month: 'Jun', expenses: 2390, credits: 3800 },
-  ];
-
-  const vendorData = [
-    { name: 'Vendor A', value: 400 },
-    { name: 'Vendor B', value: 300 },
-    { name: 'Vendor C', value: 300 },
-    { name: 'Vendor D', value: 200 },
-  ];
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-  const moduleCards = [
-    {
-      name: 'Purchase Tracker',
-      icon: ShoppingCartIcon,
-      gradient: 'from-blue-500 to-cyan-500',
-      count: stats?.summary?.purchases?.total || 0,
-      desc: 'Manage purchases',
-      href: '/dashboard/purchase'
-    },
-    {
-      name: 'Import Tracker',
-      icon: ArchiveBoxIcon,
-      gradient: 'from-green-500 to-emerald-500',
-      count: stats?.summary?.imports?.total || 0,
-      desc: 'Track imports',
-      href: '/dashboard/import'
-    },
-    {
-      name: 'Shipping Tracker',
-      icon: TruckIcon,
-      gradient: 'from-purple-500 to-violet-500',
-      count: stats?.summary?.shipping?.total || 0,
-      desc: 'Monitor shipments',
-      href: '/dashboard/shipping'
-    },
-    {
-      name: 'Pending Tracker',
-      icon: ClockIcon,
-      gradient: 'from-yellow-500 to-amber-500',
-      count: stats?.summary?.pending?.total || 0,
-      desc: 'View pending items',
-      href: '/dashboard/pending'
-    },
-    {
-      name: 'Expense Tracker',
-      icon: CurrencyDollarIcon,
-      gradient: 'from-red-500 to-rose-500',
-      count: stats?.summary?.expenses?.total || 0,
-      desc: 'Track expenses',
-      href: '/dashboard/expense'
-    },
-    {
-      name: 'Vendors',
-      icon: BuildingOfficeIcon,
-      gradient: 'from-indigo-500 to-blue-500',
-      count: stats?.summary?.vendors?.total || 0,
-      desc: 'Manage vendors',
-      href: '/dashboard/vendors'
-    },
+  const modules = [
+    { name: 'Purchase Tracker', icon: ShoppingCartIcon, count: stats?.summary?.purchases?.total || 0, href: '/dashboard/purchase', color: 'bg-blue-600' },
+    { name: 'Import Tracker',   icon: ArchiveBoxIcon,   count: stats?.summary?.imports?.total   || 0, href: '/dashboard/import',   color: 'bg-teal-600'  },
+    { name: 'Shipping Tracker', icon: TruckIcon,        count: stats?.summary?.shipping?.total  || 0, href: '/dashboard/shipping', color: 'bg-violet-600'},
+    { name: 'Pending Tracker',  icon: ClockIcon,        count: stats?.summary?.pending?.total   || 0, href: '/dashboard/pending',  color: 'bg-amber-500' },
+    { name: 'Accounts',         icon: BanknotesIcon,    count: stats?.summary?.expenses?.total  || 0, href: '/dashboard/expense',  color: 'bg-emerald-600'},
+    { name: 'Vendors',          icon: BuildingOfficeIcon,count: stats?.summary?.vendors?.total  || 0, href: '/dashboard/vendors',  color: 'bg-rose-600'  },
   ];
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header Section with Gradient */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
-          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-64 h-64 bg-white opacity-5 rounded-full"></div>
-          <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-48 h-48 bg-white opacity-5 rounded-full"></div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-4xl font-bold mb-2">Welcome back, {session?.user?.username}!</h1>
-                <p className="text-blue-100 text-lg">Here's what's happening with your business today</p>
-              </div>
-              <div className="hidden md:flex items-center space-x-3">
-                <button
-                  onClick={() => setFilterVisible(!filterVisible)}
-                  className="flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg backdrop-blur-sm transition-all"
-                >
-                  <FunnelIcon className="w-5 h-5 mr-2" />
-                  Filters
-                </button>
-                <button className="flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg backdrop-blur-sm transition-all">
-                  <CalendarIcon className="w-5 h-5 mr-2" />
-                  This Month
-                </button>
-              </div>
-            </div>
+      <div className="space-y-6 max-w-6xl mx-auto">
+
+        {/* Page header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Overview</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              Welcome back, <span className="font-medium capitalize">{session?.user?.username}</span>
+            </p>
           </div>
+          {urgent > 0 && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm font-medium">
+              <ExclamationTriangleIcon className="w-4 h-4" />
+              {urgent} urgent item{urgent !== 1 ? 's' : ''} pending
+            </div>
+          )}
         </div>
 
-        {/* Filter Bar */}
-        {filterVisible && (
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 animate-slideDown">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Filter Dashboard Data</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                <input
-                  type="date"
-                  value={dateFilter.startDate}
-                  onChange={(e) => setDateFilter({ ...dateFilter, startDate: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
-                <input
-                  type="date"
-                  value={dateFilter.endDate}
-                  onChange={(e) => setDateFilter({ ...dateFilter, endDate: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex items-end space-x-2">
-                <button
-                  onClick={applyDateFilter}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Apply
-                </button>
-                <button
-                  onClick={clearFilters}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {quickStatsCards.map((card, index) => (
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {statCards.map((card) => (
             <div
-              key={card.name}
+              key={card.label}
               onClick={() => router.push(card.href)}
-              className="glass-card group relative overflow-hidden p-0 hover:shadow-2xl hover:shadow-primary/25 dark:hover:shadow-primary/10 transition-all duration-300 cursor-pointer transform hover:-translate-y-2 hover:rotate-1"
-              style={{ animationDelay: `${index * 100}ms` }}
+              className={`bg-white dark:bg-gray-900 rounded-xl border ${card.ring} p-5 cursor-pointer hover:shadow-md dark:hover:shadow-black/30 transition-shadow`}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10 dark:from-primary/20 dark:to-primary/30 opacity-50" />
-              <div className="relative p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className={`p-3 rounded-2xl glass bg-primary/20 shadow-lg group-hover:scale-110 transition-all duration-300`}>
-                    <card.icon className="w-6 h-6 text-primary" />
-                  </div>
-                  <div className={`flex items-center text-sm font-semibold p-2 rounded-xl ${card.trendUp ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'}`}>
-                    {card.trendUp ? (
-                      <ArrowTrendingUpIcon className="w-4 h-4 mr-1" />
-                    ) : (
-                      <ArrowTrendingDownIcon className="w-4 h-4 mr-1" />
-                    )}
-                    {card.trend}
-                  </div>
+              <div className="flex items-start justify-between mb-4">
+                <div className={`p-2 rounded-lg ${card.badge}`}>
+                  <card.icon className="w-5 h-5" />
                 </div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">{card.name}</h3>
-                <p className="text-3xl font-bold bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent mb-1">{card.value}</p>
-                <p className="text-sm text-muted-foreground">{card.amount || card.subtext}</p>
+                {card.alert && (
+                  <span className="text-xs font-semibold bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-full">
+                    Urgent
+                  </span>
+                )}
               </div>
-              <div className={`h-2 bg-gradient-to-r from-primary via-primary/80 to-primary/60 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-700`}></div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{card.label}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-0.5">{card.value}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{card.sub}</p>
             </div>
           ))}
         </div>
 
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Expense Trend Line Chart */}
-          <div className="glass-card p-8">
-            <h3 className="text-2xl font-bold text-foreground mb-6 flex items-center">
-              <ChartBarIcon className="w-8 h-8 mr-3 text-primary" />
-              Expense Trends
-            </h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={expenseData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={3} dot={{ fill: '#ef4444', strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                <Line type="monotone" dataKey="credits" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', strokeWidth: 2 }} activeDot={{ r: 8 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Vendor Distribution Pie Chart */}
-          <div className="glass-card p-8">
-            <h3 className="text-2xl font-bold text-foreground mb-6 flex items-center">
-              <BuildingOfficeIcon className="w-8 h-8 mr-3 text-primary" />
-              Vendor Spend Distribution
-            </h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={vendorData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  nameKey="name"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {vendorData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Status Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="glass-card p-8 border border-border/50 group hover:shadow-xl hover:shadow-green-500/10 dark:hover:shadow-green-400/20">
-            <div className="flex items-center mb-6 group-hover:scale-105 transition-transform">
-              <div className="p-3 rounded-2xl bg-green-500/20 backdrop-blur-sm shadow-lg border border-green-500/30">
-                <CheckCircleIcon className="w-8 h-8 text-green-600" />
-              </div>
-              <h3 className="ml-4 text-xl font-bold text-foreground">Completed</h3>
+        {/* Summary strip — financial snapshot */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 px-5 py-4 flex items-center gap-4">
+            <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/30">
+              <ArrowTrendingUpIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
-            <div className="space-y-4 text-lg">
-              <div className="flex justify-between p-3 glass rounded-xl">
-                <span className="text-muted-foreground font-medium">Purchased Items</span>
-                <span className="font-bold text-foreground">{stats?.summary?.purchases?.purchased || 0}</span>
-              </div>
-              <div className="flex justify-between p-3 glass rounded-xl">
-                <span className="text-muted-foreground font-medium">Received Items</span>
-                <span className="font-bold text-foreground">{stats?.summary?.pending?.received || 0}</span>
-              </div>
-              <div className="flex justify-between p-3 glass rounded-xl">
-                <span className="text-muted-foreground font-medium">Shipped Orders</span>
-                <span className="font-bold text-foreground">{stats?.summary?.shipping?.shipped || 0}</span>
-              </div>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Total Credits</p>
+              <p className="text-base font-bold text-gray-900 dark:text-white">
+                AED {(stats?.summary?.expenses?.totalCredit || 0).toLocaleString()}
+              </p>
             </div>
           </div>
-
-          <div className="glass-card p-8 border border-border/50 group hover:shadow-xl hover:shadow-orange-500/10 dark:hover:shadow-orange-400/20">
-            <div className="flex items-center mb-6 group-hover:scale-105 transition-transform">
-              <div className="p-3 rounded-2xl bg-orange-500/20 backdrop-blur-sm shadow-lg border border-orange-500/30">
-                <ExclamationTriangleIcon className="w-8 h-8 text-orange-600" />
-              </div>
-              <h3 className="ml-4 text-xl font-bold text-foreground">Pending/Urgent</h3>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 px-5 py-4 flex items-center gap-4">
+            <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/30">
+              <ArrowTrendingDownIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
-            <div className="space-y-4 text-lg">
-              <div className="flex justify-between p-3 glass rounded-xl bg-orange-100/50 dark:bg-orange-900/20">
-                <span className="text-muted-foreground font-medium">Urgent Items</span>
-                <span className="font-bold text-orange-600">{stats?.summary?.pending?.urgent || 0}</span>
-              </div>
-              <div className="flex justify-between p-3 glass rounded-xl">
-                <span className="text-muted-foreground font-medium">Pending Items</span>
-                <span className="font-bold text-foreground">{stats?.summary?.pending?.pending || 0}</span>
-              </div>
-              <div className="flex justify-between p-3 glass rounded-xl">
-                <span className="text-muted-foreground font-medium">Quotations</span>
-                <span className="font-bold text-foreground">{stats?.summary?.purchases?.quotations || 0}</span>
-              </div>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Total Debits</p>
+              <p className="text-base font-bold text-gray-900 dark:text-white">
+                AED {(stats?.summary?.expenses?.totalDebit || 0).toLocaleString()}
+              </p>
             </div>
           </div>
-
-          <div className="glass-card p-8 border border-border/50 group hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-blue-400/20">
-            <div className="flex items-center mb-6 group-hover:scale-105 transition-transform">
-              <div className="p-3 rounded-2xl bg-blue-500/20 backdrop-blur-sm shadow-lg border border-blue-500/30">
-                <ChartBarIcon className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="ml-4 text-xl font-bold text-foreground">Financial Summary</h3>
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 px-5 py-4 flex items-center gap-4">
+            <div className={`p-2 rounded-lg ${balance >= 0 ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-red-50 dark:bg-red-900/30'}`}>
+              <BanknotesIcon className={`w-5 h-5 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`} />
             </div>
-            <div className="space-y-4 text-lg">
-              <div className="flex justify-between p-3 glass rounded-xl">
-                <span className="text-muted-foreground font-medium">Total Credits</span>
-                <span className="font-bold text-green-600">
-                  AED {(stats?.summary?.expenses?.totalCredit || 0).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between p-3 glass rounded-xl">
-                <span className="text-muted-foreground font-medium">Total Debits</span>
-                <span className="font-bold text-red-600">
-                  AED {(stats?.summary?.expenses?.totalDebit || 0).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between p-4 glass-card rounded-2xl border-t border-primary/30 pt-4">
-                <span className="text-foreground font-bold text-xl">Balance</span>
-                <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-primary bg-clip-text text-transparent">
-                  AED {(stats?.summary?.expenses?.balance || 0).toLocaleString()}
-                </span>
-              </div>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Net Balance</p>
+              <p className={`text-base font-bold ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+                AED {balance.toLocaleString()}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Module Cards Grid */}
+        {/* Module cards */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
-            <div className="w-1 h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full mr-3"></div>
-            Quick Access Modules
+          <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
+            Quick Access
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {moduleCards.map((card, index) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {modules.map((m) => (
               <div
-                key={card.name}
-                onClick={() => router.push(card.href)}
-                className="group relative overflow-hidden bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-200"
+                key={m.name}
+                onClick={() => router.push(m.href)}
+                className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 cursor-pointer hover:shadow-md dark:hover:shadow-black/30 transition-shadow text-center"
               >
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`p-3 rounded-lg bg-gradient-to-br ${card.gradient} shadow-md group-hover:scale-110 transition-transform`}>
-                      <card.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-gray-900">{card.count}</div>
-                      <div className="text-xs text-gray-500">Total</div>
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">{card.name}</h3>
-                  <p className="text-sm text-gray-600">{card.desc}</p>
+                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl ${m.color} mb-3`}>
+                  <m.icon className="w-5 h-5 text-white" />
                 </div>
-                <div className={`h-1 bg-gradient-to-r ${card.gradient} transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform`}></div>
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 leading-tight">{m.name}</p>
+                <p className="text-xs text-gray-400 mt-1">{m.count}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-              <FireIcon className="w-6 h-6 text-orange-500 mr-2" />
-              Recent Purchases
-            </h3>
-            <div className="space-y-3">
-              {stats?.recentActivity?.purchases?.map((purchase, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 text-sm">{purchase.itemDescription}</p>
-                    <p className="text-xs text-gray-500">
-                      {purchase.vendorName} • {new Date(purchase.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">AED {purchase.totalInAED?.toLocaleString()}</p>
-                    <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                      purchase.status === 'Purchased' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {purchase.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+        {/* Recent activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Recent purchases */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Purchases</h3>
+              <button
+                onClick={() => router.push('/dashboard/purchase')}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                View all
+              </button>
             </div>
+            {stats?.recentActivity?.purchases?.length > 0 ? (
+              <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                {stats.recentActivity.purchases.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{p.itemDescription}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{p.vendorName} · {new Date(p.createdAt).toLocaleDateString()}</p>
+                    </div>
+                    <div className="ml-4 text-right shrink-0">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        AED {(p.totalInAED || 0).toLocaleString()}
+                      </p>
+                      <span className={`inline-block text-xs px-1.5 py-0.5 rounded mt-0.5 ${
+                        p.status === 'Purchased'
+                          ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
+                          : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400'
+                      }`}>
+                        {p.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="px-5 py-6 text-sm text-gray-400 text-center">No recent purchases</p>
+            )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-              <CurrencyDollarIcon className="w-6 h-6 text-red-500 mr-2" />
-              Recent Expenses
-            </h3>
-            <div className="space-y-3">
-              {stats?.recentActivity?.expenses?.map((expense, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 text-sm">{expense.category}</p>
-                    <p className="text-xs text-gray-500">
-                      {expense.remark?.substring(0, 40)}... • {new Date(expense.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${expense.type === 'expense' ? 'text-red-600' : 'text-green-600'}`}>
-                      {expense.type === 'expense' ? '-' : '+'}AED {expense.amount?.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
+          {/* Recent expenses */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Recent Transactions</h3>
+              <button
+                onClick={() => router.push('/dashboard/expense')}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                View all
+              </button>
             </div>
+            {stats?.recentActivity?.expenses?.length > 0 ? (
+              <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                {stats.recentActivity.expenses.map((e, i) => (
+                  <div key={i} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{e.category}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[200px]">
+                        {e.remark || '—'} · {new Date(e.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <p className={`ml-4 text-sm font-bold shrink-0 ${
+                      e.type === 'expense' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
+                    }`}>
+                      {e.type === 'expense' ? '−' : '+'}AED {(e.amount || 0).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="px-5 py-6 text-sm text-gray-400 text-center">No recent transactions</p>
+            )}
           </div>
         </div>
-      </div>
 
-      <style jsx>{`
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-slideDown {
-          animation: slideDown 0.3s ease-out;
-        }
-      `}</style>
+      </div>
     </DashboardLayout>
   );
 }

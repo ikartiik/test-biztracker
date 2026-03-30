@@ -5,7 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
-import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { exportPending } from '@/lib/exportExcel';
 
 export default function PendingTracker() {
   const { data: session } = useSession();
@@ -70,6 +71,13 @@ export default function PendingTracker() {
             <h1 className="text-3xl font-bold text-gray-900">Pending Tracker</h1>
             <p className="mt-2 text-gray-600">Track and manage pending items</p>
           </div>
+          <button
+            onClick={() => exportPending(pendingItems)}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
+          >
+            <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
+            Export
+          </button>
         </div>
 
         <div className="bg-white shadow rounded-lg overflow-hidden">
