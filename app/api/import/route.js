@@ -93,7 +93,11 @@ export async function GET(req) {
 
     const imports = await Import.find({})
       .populate('vendor', 'company salespersonName contact')
+<<<<<<< HEAD
       .sort({ createdAt: -1 });
+=======
+      .sort({ srNo: 1 });
+>>>>>>> blackboxai/login-mongodb-fix
     
     logger.info('Imports fetched successfully', {
       method: 'GET',
@@ -282,7 +286,11 @@ export async function DELETE(req) {
       method: 'DELETE',
       path: '/api/import'
     });
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
     const authenticated = await isAuthenticated(req);
     if (!authenticated) {
       logger.warn('Unauthorized attempt to delete import', {
@@ -291,7 +299,11 @@ export async function DELETE(req) {
         statusCode: 401,
         authorized: false
       });
+<<<<<<< HEAD
       
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -302,22 +314,35 @@ export async function DELETE(req) {
 
     const url = new URL(req.url);
     const id = url.searchParams.get('id');
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
     if (!id) {
       return NextResponse.json(
         { error: 'ID parameter is required' },
         { status: 400 }
       );
     }
+<<<<<<< HEAD
     
     const deletedImport = await Import.findByIdAndDelete(id);
     
     if (!deletedImport) {
+=======
+
+    // First, get the import details before deleting
+    const importItem = await Import.findById(id);
+
+    if (!importItem) {
+>>>>>>> blackboxai/login-mongodb-fix
       return NextResponse.json(
         { error: 'Import not found' },
         { status: 404 }
       );
     }
+<<<<<<< HEAD
     
     logger.info('Import deleted successfully', {
       method: 'DELETE',
@@ -330,6 +355,75 @@ export async function DELETE(req) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
+=======
+
+    // Import Shipping model for cascade delete
+    const Shipping = require('@/models/Shipping').default;
+
+    // CASCADE DELETE: Delete all related entries
+    const cascadeResults = {
+      pending: 0,
+      shipping: 0,
+      expense: 0
+    };
+
+    try {
+      // 1. Delete related pending entries
+      // Pending entries are created with srNo like "{serialNumber}-{itemIndex}"
+      const deletedPending = await Pending.deleteMany({
+        srNo: { $regex: `^${importItem.serialNumber}-`, $options: 'i' }
+      });
+      cascadeResults.pending = deletedPending.deletedCount || 0;
+
+      // 2. Delete related shipping entries
+      // Shipping entries linked by sourceId and sourceModel
+      const deletedShipping = await Shipping.deleteMany({
+        sourceId: importItem._id,
+        sourceModel: 'Import'
+      });
+      cascadeResults.shipping = deletedShipping.deletedCount || 0;
+
+      // 3. Delete related expense entries
+      // Expense entries contain the import details in remark and comment
+      const deletedExpenses = await Expense.deleteMany({
+        $or: [
+          { remark: { $regex: `import ${importItem.serialNumber}`, $options: 'i' } },
+          { remark: { $regex: importItem.invoiceNumber, $options: 'i' } },
+          { sourceExpense: { $regex: `Import Duty - ${importItem.serialNumber}`, $options: 'i' } },
+          { comment: { $regex: `import ${importItem.serialNumber}`, $options: 'i' } }
+        ]
+      });
+      cascadeResults.expense = deletedExpenses.deletedCount || 0;
+
+    } catch (cascadeError) {
+      logger.error('Error during cascade delete', {
+        error: cascadeError instanceof Error ? cascadeError.message : 'Unknown error',
+        importId: id
+      });
+      // Continue with import deletion even if cascade fails
+    }
+
+    // Finally, delete the import itself
+    const deletedImport = await Import.findByIdAndDelete(id);
+
+    logger.info('Import and related entries deleted successfully', {
+      method: 'DELETE',
+      path: '/api/import',
+      importId: id,
+      serialNumber: importItem.serialNumber,
+      cascadeResults,
+      statusCode: 200
+    });
+
+    return NextResponse.json({
+      message: 'Import and all related entries deleted successfully',
+      deletedImport,
+      cascadeResults
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+>>>>>>> blackboxai/login-mongodb-fix
     logger.error(`Failed to delete import: ${errorMessage}`, {
       method: 'DELETE',
       path: '/api/import',
@@ -337,7 +431,11 @@ export async function DELETE(req) {
       error: errorMessage,
       stack: error instanceof Error ? error.stack : undefined
     });
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
     return NextResponse.json(
       { error: 'Failed to delete import' },
       { status: 500 }

@@ -17,6 +17,10 @@ const logger = {
   error: (message, meta = {}) => console.error(`ERROR: ${message}`, meta)
 };
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
 export async function GET(req) {
   try {
     logger.info('GET request received for expenses', {
@@ -75,7 +79,11 @@ export async function POST(req) {
       method: 'POST',
       path: '/api/expense'
     });
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
     const authenticated = await isAuthenticated(req);
     if (!authenticated) {
       logger.warn('Unauthorized attempt to create expense', {
@@ -84,7 +92,11 @@ export async function POST(req) {
         statusCode: 401,
         authorized: false
       });
+<<<<<<< HEAD
       
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -94,6 +106,7 @@ export async function POST(req) {
     await dbConnect();
 
     const body = await req.json();
+<<<<<<< HEAD
     
     // Calculate balance based on previous entry
     const latestExpense = await Expense.findOne().sort({ createdAt: -1 });
@@ -105,17 +118,38 @@ export async function POST(req) {
     const expense = new Expense(expenseData);
     await expense.save();
     
+=======
+
+    // Calculate balance based on previous entry
+    const latestExpense = await Expense.findOne().sort({ createdAt: -1 });
+    const currentBalance = latestExpense ? latestExpense.balance : 0;
+
+    const expenseData = body;
+    expenseData.balance = currentBalance + (expenseData.creditAmount || 0) - (expenseData.debitAmount || 0);
+
+    const expense = new Expense(expenseData);
+    await expense.save();
+
+>>>>>>> blackboxai/login-mongodb-fix
     logger.info('Expense created successfully', {
       method: 'POST',
       path: '/api/expense',
       expenseId: expense._id,
       statusCode: 201
     });
+<<<<<<< HEAD
     
     return NextResponse.json(expense, { status: 201 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
+=======
+
+    return NextResponse.json(expense, { status: 201 });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+>>>>>>> blackboxai/login-mongodb-fix
     logger.error(`Failed to create expense: ${errorMessage}`, {
       method: 'POST',
       path: '/api/expense',
@@ -123,7 +157,11 @@ export async function POST(req) {
       error: errorMessage,
       stack: error instanceof Error ? error.stack : undefined
     });
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
     return NextResponse.json(
       { error: 'Failed to create expense' },
       { status: 500 }

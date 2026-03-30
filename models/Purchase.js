@@ -105,11 +105,26 @@ const PurchaseSchema = new mongoose.Schema({
   }],
   paymentAccount: {
     type: String,
+<<<<<<< HEAD
     enum: ['mashreq', 'hsbc', 'crown', 'sasco', 'other_fz', 'cash'],
+=======
+    enum: ['mashreq', 'hsbc', 'kar_fab', 'kar_liv', 'kar_mashreq', 'crown', 'sasco', 'other_fz', 'cash'],
+>>>>>>> blackboxai/login-mongodb-fix
   },
   srNo: {
     type: Number,
   },
+<<<<<<< HEAD
+=======
+  linkedExpenseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Expense',
+  },
+  linkedPendingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Pending',
+  },
+>>>>>>> blackboxai/login-mongodb-fix
 }, {
   timestamps: true,
 });
@@ -138,8 +153,14 @@ PurchaseSchema.pre('save', async function(next) {
   };
 
   // Calculate AED amounts and totals
+<<<<<<< HEAD
   this.priceInAED = this.price * exchangeRates[this.currency];
   this.total = this.price * this.quantity;
+=======
+  const price = (this.price != null && !isNaN(this.price)) ? this.price : 0;
+  this.priceInAED = price * exchangeRates[this.currency];
+  this.total = price * this.quantity;
+>>>>>>> blackboxai/login-mongodb-fix
   this.totalInAED = this.priceInAED * this.quantity;
 
   next();

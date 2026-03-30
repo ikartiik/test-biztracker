@@ -5,19 +5,46 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
 import { toast } from 'react-hot-toast';
+<<<<<<< HEAD
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, DocumentArrowUpIcon, UserPlusIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline';
+=======
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, DocumentArrowUpIcon, UserPlusIcon, CloudArrowUpIcon, FunnelIcon, MagnifyingGlassIcon, ClockIcon, CheckIcon, ArrowDownTrayIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
+import { exportImports } from '@/lib/exportExcel';
+>>>>>>> blackboxai/login-mongodb-fix
 
 export default function ImportTracker() {
   const { data: session } = useSession();
   const router = useRouter();
   const fileInputRef = useRef(null);
   const [imports, setImports] = useState([]);
+<<<<<<< HEAD
+=======
+  const [filteredImports, setFilteredImports] = useState([]);
+>>>>>>> blackboxai/login-mongodb-fix
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+<<<<<<< HEAD
   const [items, setItems] = useState([{ itemDescription: '', quantity: 1 }]);
+=======
+  const [expandedImportId, setExpandedImportId] = useState(null);
+  const [items, setItems] = useState([{ itemDescription: '', quantity: 1 }]);
+  const [filterVisible, setFilterVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState('enroute'); // 'enroute' or 'received'
+
+  // Filter states
+  const [filters, setFilters] = useState({
+    status: 'all',
+    vendor: 'all',
+    country: 'all',
+    paymentMode: 'all',
+    searchText: '',
+    startDate: '',
+    endDate: ''
+  });
+>>>>>>> blackboxai/login-mongodb-fix
   
   const [formData, setFormData] = useState({
     vendor: '',
@@ -47,6 +74,12 @@ export default function ImportTracker() {
     { value: 'cash', label: 'Cash' },
     { value: 'mashreq', label: 'Mashreq Bank' },
     { value: 'hsbc', label: 'HSBC Bank' },
+<<<<<<< HEAD
+=======
+    { value: 'kar_fab', label: 'Kar FAB' },
+    { value: 'kar_liv', label: 'Kar Liv' },
+    { value: 'kar_mashreq', label: 'Kar Mashreq' },
+>>>>>>> blackboxai/login-mongodb-fix
     { value: 'crown', label: 'Crown' },
     { value: 'sasco', label: 'SASCO' },
     { value: 'other_fz', label: 'Other FZ' }
@@ -60,6 +93,102 @@ export default function ImportTracker() {
     fetchData();
   }, [session, router]);
 
+<<<<<<< HEAD
+=======
+  // Apply filters whenever imports, filters, or activeTab change
+  useEffect(() => {
+    applyFilters();
+  }, [imports, filters, activeTab]);
+
+  const applyFilters = () => {
+    let filtered = [...imports];
+
+    // Tab filter - filter by status based on active tab
+    if (activeTab === 'enroute') {
+      filtered = filtered.filter(imp => imp.status === 'Enroute');
+    } else if (activeTab === 'received') {
+      filtered = filtered.filter(imp => imp.status === 'Received');
+    }
+
+    // Status filter (only if not already filtered by tab)
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(imp => imp.status === filters.status);
+    }
+
+    // Vendor filter
+    if (filters.vendor !== 'all') {
+      filtered = filtered.filter(imp => imp.vendor?._id === filters.vendor || imp.vendorName === filters.vendor);
+    }
+
+    // Country filter
+    if (filters.country !== 'all') {
+      filtered = filtered.filter(imp => imp.country === filters.country);
+    }
+
+    // Payment mode filter
+    if (filters.paymentMode !== 'all') {
+      filtered = filtered.filter(imp => imp.paymentMode === filters.paymentMode);
+    }
+
+    // Search text filter
+    if (filters.searchText) {
+      const searchLower = filters.searchText.toLowerCase();
+      filtered = filtered.filter(imp =>
+        imp.invoiceNumber?.toLowerCase().includes(searchLower) ||
+        imp.trackingNumber?.toLowerCase().includes(searchLower) ||
+        imp.vendorName?.toLowerCase().includes(searchLower) ||
+        imp.country?.toLowerCase().includes(searchLower) ||
+        imp.items?.some(item => item.itemDescription?.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Date range filter (shipping date)
+    if (filters.startDate) {
+      filtered = filtered.filter(imp => new Date(imp.dateOfShipping) >= new Date(filters.startDate));
+    }
+    if (filters.endDate) {
+      filtered = filtered.filter(imp => new Date(imp.dateOfShipping) <= new Date(filters.endDate));
+    }
+
+    setFilteredImports(filtered);
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      status: 'all',
+      vendor: 'all',
+      country: 'all',
+      paymentMode: 'all',
+      searchText: '',
+      startDate: '',
+      endDate: ''
+    });
+  };
+
+  const getActiveFiltersCount = () => {
+    let count = 0;
+    if (filters.status !== 'all') count++;
+    if (filters.vendor !== 'all') count++;
+    if (filters.country !== 'all') count++;
+    if (filters.paymentMode !== 'all') count++;
+    if (filters.searchText) count++;
+    if (filters.startDate) count++;
+    if (filters.endDate) count++;
+    return count;
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    // Reset status filter when changing tabs
+    setFilters({ ...filters, status: 'all' });
+  };
+
+  const getUniqueCountries = () => {
+    const countries = imports.map(imp => imp.country).filter(Boolean);
+    return [...new Set(countries)].sort();
+  };
+
+>>>>>>> blackboxai/login-mongodb-fix
   const fetchData = async () => {
     try {
       await Promise.all([
@@ -110,10 +239,14 @@ export default function ImportTracker() {
         if (submitData.amountDutyPaid > 0) {
           toast.success('Expense entry created for duty payment');
         }
+<<<<<<< HEAD
         if (submitData.status === 'Received') {
           toast.success('Items added to pending tracker');
         }
         fetchImports();
+=======
+        fetchData();
+>>>>>>> blackboxai/login-mongodb-fix
         closeModal();
       } else {
         const error = await response.json();
@@ -194,6 +327,22 @@ export default function ImportTracker() {
     event.target.value = '';
   };
 
+<<<<<<< HEAD
+=======
+  const downloadCSVFormat = () => {
+    const csvContent = 'item_description,quantity\nSample Item 1,5\nSample Item 2,3\n';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'import_items_template.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+>>>>>>> blackboxai/login-mongodb-fix
   const addItem = () => {
     setItems([...items, { itemDescription: '', quantity: 1 }]);
   };
@@ -231,12 +380,28 @@ export default function ImportTracker() {
   };
 
   const handleDelete = async (id) => {
+<<<<<<< HEAD
     if (window.confirm('Are you sure you want to delete this import?')) {
       try {
         const response = await fetch(`/api/import?id=${id}`, { method: 'DELETE' });
         if (response.ok) {
           toast.success('Import deleted successfully');
           fetchImports();
+=======
+    if (window.confirm('Are you sure you want to delete this import? This will also delete all related entries from Pending, Shipping, and Expense trackers.')) {
+      try {
+        const response = await fetch(`/api/import?id=${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          const result = await response.json();
+          toast.success(
+            `Import deleted successfully!\n` +
+            `Removed: ${result.cascadeResults?.pending || 0} pending, ` +
+            `${result.cascadeResults?.shipping || 0} shipping, ` +
+            `${result.cascadeResults?.expense || 0} expense entries`,
+            { duration: 5000 }
+          );
+          fetchData();
+>>>>>>> blackboxai/login-mongodb-fix
         } else {
           toast.error('Error deleting import');
         }
@@ -298,6 +463,7 @@ export default function ImportTracker() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Import Tracker</h1>
+<<<<<<< HEAD
             <p className="mt-2 text-gray-600">Manage and track all imports with automated expense and pending tracking</p>
           </div>
           <button
@@ -309,6 +475,220 @@ export default function ImportTracker() {
           </button>
         </div>
 
+=======
+            <p className="mt-2 text-gray-600">
+              {activeTab === 'enroute'
+                ? 'Manage and track imports currently in transit'
+                : 'View and manage received imports with automated expense tracking'}
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setFilterVisible(!filterVisible)}
+              className={`px-4 py-2 rounded-lg flex items-center transition-colors relative ${
+                filterVisible
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <FunnelIcon className="w-5 h-5 mr-2" />
+              Filters
+              {getActiveFiltersCount() > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                  {getActiveFiltersCount()}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => exportImports(filteredImports)}
+              className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 flex items-center"
+            >
+              <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
+              Export
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center"
+            >
+              <PlusIcon className="w-5 h-5 mr-2" />
+              Add Import
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs Section */}
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-1 flex space-x-1">
+          <button
+            onClick={() => handleTabChange('enroute')}
+            className={`flex-1 px-6 py-3 rounded-md font-medium transition-all ${
+              activeTab === 'enroute'
+                ? 'bg-yellow-500 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <div className="flex items-center justify-center">
+              <ClockIcon className="w-5 h-5 mr-2" />
+              <span>Enroute</span>
+              <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                activeTab === 'enroute'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}>
+                {imports.filter(imp => imp.status === 'Enroute').length}
+              </span>
+            </div>
+          </button>
+          <button
+            onClick={() => handleTabChange('received')}
+            className={`flex-1 px-6 py-3 rounded-md font-medium transition-all ${
+              activeTab === 'received'
+                ? 'bg-green-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <div className="flex items-center justify-center">
+              <CheckIcon className="w-5 h-5 mr-2" />
+              <span>Received</span>
+              <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                activeTab === 'received'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}>
+                {imports.filter(imp => imp.status === 'Received').length}
+              </span>
+            </div>
+          </button>
+        </div>
+
+        {/* Filter Section */}
+        {filterVisible && (
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Filter Imports</h3>
+              <button
+                onClick={clearFilters}
+                className="text-sm text-green-600 hover:text-green-800 font-medium"
+              >
+                Clear All
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Search */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                <div className="relative">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={filters.searchText}
+                    onChange={(e) => setFilters({ ...filters, searchText: e.target.value })}
+                    placeholder="Search imports..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Status Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="all">All Status</option>
+                  {activeTab === 'enroute' ? (
+                    <option value="Enroute">Enroute</option>
+                  ) : (
+                    <option value="Received">Received</option>
+                  )}
+                </select>
+              </div>
+
+              {/* Vendor Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Vendor</label>
+                <select
+                  value={filters.vendor}
+                  onChange={(e) => setFilters({ ...filters, vendor: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="all">All Vendors</option>
+                  {vendors.map((vendor) => (
+                    <option key={vendor._id} value={vendor._id}>{vendor.company}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Country Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                <select
+                  value={filters.country}
+                  onChange={(e) => setFilters({ ...filters, country: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="all">All Countries</option>
+                  {getUniqueCountries().map((country) => (
+                    <option key={country} value={country}>{country}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Payment Mode Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Mode</label>
+                <select
+                  value={filters.paymentMode}
+                  onChange={(e) => setFilters({ ...filters, paymentMode: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="all">All Payment Modes</option>
+                  {paymentAccounts.map((account) => (
+                    <option key={account.value} value={account.value}>{account.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Start Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* End Date Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                <input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Results Count */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <p className="text-sm text-gray-600">
+                Showing <span className="font-semibold text-gray-900">{filteredImports.length}</span> of{' '}
+                <span className="font-semibold text-gray-900">
+                  {activeTab === 'enroute'
+                    ? imports.filter(imp => imp.status === 'Enroute').length
+                    : imports.filter(imp => imp.status === 'Received').length}
+                </span> {activeTab === 'enroute' ? 'enroute imports' : 'received imports'}
+              </p>
+            </div>
+          </div>
+        )}
+
+>>>>>>> blackboxai/login-mongodb-fix
         <div className="bg-white shadow rounded-lg overflow-hidden">
           {loading ? (
             <div className="p-8 text-center">Loading...</div>
@@ -320,7 +700,10 @@ export default function ImportTracker() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sr. No.</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
+<<<<<<< HEAD
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+=======
+>>>>>>> blackboxai/login-mongodb-fix
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tracking</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shipping Date</th>
@@ -330,6 +713,7 @@ export default function ImportTracker() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
+<<<<<<< HEAD
                   {imports.map((importItem) => (
                     <tr key={importItem._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -405,6 +789,122 @@ export default function ImportTracker() {
               {imports.length === 0 && (
                 <div className="p-8 text-center text-gray-500">
                   No imports found. Add your first import to get started.
+=======
+                  {filteredImports.map((importItem) => (
+                    <>
+                      <tr key={importItem._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {importItem.srNo}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div>{importItem.vendorName}</div>
+                          {importItem.vendor?.salespersonName && (
+                            <div className="text-xs text-gray-500">{importItem.vendor.salespersonName}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.country}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{importItem.invoiceNumber}</td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {importItem.trackingNumber && (
+                            <div>
+                              <div className="font-medium">{importItem.trackingNumber}</div>
+                              {importItem.trackingLink && (
+                                <a href={importItem.trackingLink} target="_blank" rel="noopener noreferrer"
+                                   className="text-blue-500 text-xs hover:underline">Track</a>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(importItem.dateOfShipping).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div>AED {importItem.amountDutyPaid || 0}</div>
+                          {importItem.amountDutyPaid > 0 && (
+                            <div className="text-xs text-gray-500">
+                              {importItem.paymentMode === 'bank' ? `Bank: ${importItem.bankName}` : 'Cash'}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(importItem.status)}`}>
+                            {importItem.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => setExpandedImportId(expandedImportId === importItem._id ? null : importItem._id)}
+                              className="text-green-600 hover:text-green-900 flex items-center gap-1 text-xs font-medium"
+                              title="View Items"
+                            >
+                              {expandedImportId === importItem._id
+                                ? <ChevronUpIcon className="w-4 h-4" />
+                                : <ChevronDownIcon className="w-4 h-4" />}
+                              {getTotalItems(importItem.items)} items
+                            </button>
+                            <button
+                              onClick={() => handleEdit(importItem)}
+                              className="text-blue-600 hover:text-blue-900"
+                              title="Edit"
+                            >
+                              <PencilIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(importItem._id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete"
+                            >
+                              <TrashIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      {expandedImportId === importItem._id && (
+                        <tr key={`${importItem._id}-items`} className="bg-green-50">
+                          <td colSpan={9} className="px-6 py-4">
+                            <div className="text-sm font-medium text-gray-700 mb-2">
+                              Items — {importItem.vendorName} / Invoice: {importItem.invoiceNumber}
+                            </div>
+                            <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded-md overflow-hidden">
+                              <thead className="bg-gray-100">
+                                <tr>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item Description</th>
+                                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-100">
+                                {importItem.items && importItem.items.length > 0 ? (
+                                  importItem.items.map((item, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50">
+                                      <td className="px-4 py-2 text-sm text-gray-500">{idx + 1}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">{item.itemDescription}</td>
+                                      <td className="px-4 py-2 text-sm text-gray-900">{item.quantity}</td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan={3} className="px-4 py-2 text-sm text-gray-500 text-center">No items</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+              {filteredImports.length === 0 && (
+                <div className="p-8 text-center text-gray-500">
+                  {imports.length === 0
+                    ? 'No imports found. Add your first import to get started.'
+                    : activeTab === 'enroute'
+                    ? 'No enroute imports match your filters. Try adjusting your search criteria.'
+                    : 'No received imports match your filters. Try adjusting your search criteria.'}
+>>>>>>> blackboxai/login-mongodb-fix
                 </div>
               )}
             </div>
@@ -482,6 +982,18 @@ export default function ImportTracker() {
                       />
                       <button
                         type="button"
+<<<<<<< HEAD
+=======
+                        onClick={downloadCSVFormat}
+                        className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm flex items-center"
+                        title="Download CSV Template"
+                      >
+                        <ArrowDownTrayIcon className="w-4 h-4 mr-1" />
+                        CSV Format
+                      </button>
+                      <button
+                        type="button"
+>>>>>>> blackboxai/login-mongodb-fix
                         onClick={() => fileInputRef.current?.click()}
                         className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm flex items-center"
                       >
@@ -748,6 +1260,10 @@ export default function ImportTracker() {
           </div>
         </div>
       )}
+<<<<<<< HEAD
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
     </DashboardLayout>
   );
 }

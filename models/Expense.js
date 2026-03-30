@@ -17,7 +17,11 @@ const ExpenseSchema = new mongoose.Schema({
   },
   account: {
     type: String,
+<<<<<<< HEAD
     enum: ['mashreq', 'hsbc', 'crown', 'sasco', 'other_fz', 'cash'],
+=======
+    enum: ['mashreq', 'hsbc', 'kar_fab', 'kar_liv', 'kar_mashreq', 'crown', 'sasco', 'other_fz', 'cash'],
+>>>>>>> blackboxai/login-mongodb-fix
     default: 'cash',
   },
   amount: {
@@ -59,6 +63,13 @@ const ExpenseSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+<<<<<<< HEAD
+=======
+  linkedPurchaseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Purchase',
+  },
+>>>>>>> blackboxai/login-mongodb-fix
 }, {
   timestamps: true,
 });

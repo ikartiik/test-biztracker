@@ -86,9 +86,45 @@ const ShippingSchema = new mongoose.Schema({
 
 // Pre-save middleware to auto-generate srNo, serialNumber and update status
 ShippingSchema.pre('save', async function(next) {
+<<<<<<< HEAD
   if (!this.srNo) {
     const lastShipping = await this.constructor.findOne().sort({ srNo: -1 });
     this.srNo = lastShipping ? lastShipping.srNo + 1 : 1;
+=======
+  if (!this.srNo || this.isNew) {
+    // Use a more robust approach to avoid duplicate srNo
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+      try {
+        const lastShipping = await this.constructor.findOne().sort({ srNo: -1 }).select('srNo').lean();
+        const newSrNo = lastShipping ? lastShipping.srNo + 1 : 1;
+
+        // Check if this srNo already exists (in case of race condition)
+        const existing = await this.constructor.findOne({ srNo: newSrNo }).select('_id').lean();
+
+        if (!existing) {
+          this.srNo = newSrNo;
+          break;
+        }
+
+        attempts++;
+        // If srNo exists, try again with the next number
+      } catch (error) {
+        if (error.code === 11000) {
+          // Duplicate key error, retry
+          attempts++;
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    if (attempts >= maxAttempts) {
+      throw new Error('Failed to generate unique srNo after multiple attempts');
+    }
+>>>>>>> blackboxai/login-mongodb-fix
   }
 
   if (!this.serialNumber) {
@@ -97,7 +133,11 @@ ShippingSchema.pre('save', async function(next) {
 
   // Calculate total shipped quantity from shipment entries
   this.quantityShipped = this.shipmentEntries.reduce((total, entry) => total + entry.quantityShipped, 0);
+<<<<<<< HEAD
   
+=======
+
+>>>>>>> blackboxai/login-mongodb-fix
   // Calculate remaining quantity
   this.quantityRemaining = this.totalQuantity - this.quantityShipped;
 

@@ -28,13 +28,21 @@ async function createShippingFromImports() {
   for (const importItem of imports) {
     if (importItem.items && importItem.items.length > 0) {
       for (const item of importItem.items) {
+<<<<<<< HEAD
         // Check if shipping entry already exists
         const existingShipping = await Shipping.findOne({
           sourceId: importItem._id,
+=======
+        // Check if shipping entry already exists by sourceId and itemDescription
+        const existingShipping = await Shipping.findOne({
+          sourceId: importItem._id,
+          sourceModel: 'Import',
+>>>>>>> blackboxai/login-mongodb-fix
           itemDescription: item.itemDescription,
         });
 
         if (!existingShipping) {
+<<<<<<< HEAD
           const shippingEntry = new Shipping({
             itemDescription: item.itemDescription,
             totalQuantity: item.quantity,
@@ -47,6 +55,35 @@ async function createShippingFromImports() {
           });
           await shippingEntry.save();
           newShippingEntries.push(shippingEntry);
+=======
+          try {
+            const shippingEntry = new Shipping({
+              itemDescription: item.itemDescription,
+              totalQuantity: item.quantity,
+              source: 'Import',
+              sourceId: importItem._id,
+              sourceModel: 'Import',
+              sourceSerialNumber: importItem.serialNumber,
+              vendorName: importItem.vendorName,
+              category: 'Import',
+            });
+            await shippingEntry.save();
+            newShippingEntries.push(shippingEntry);
+            logger.info('Created shipping entry from import', {
+              itemDescription: item.itemDescription,
+              srNo: shippingEntry.srNo
+            });
+          } catch (error) {
+            if (error.code === 11000) {
+              logger.warn('Duplicate shipping entry detected, skipping', {
+                itemDescription: item.itemDescription,
+                sourceId: importItem._id
+              });
+            } else {
+              throw error;
+            }
+          }
+>>>>>>> blackboxai/login-mongodb-fix
         }
       }
     }
@@ -60,13 +97,21 @@ async function createShippingFromPurchases() {
   const newShippingEntries = [];
 
   for (const purchase of purchases) {
+<<<<<<< HEAD
     // Check if shipping entry already exists
     const existingShipping = await Shipping.findOne({
       sourceId: purchase._id,
+=======
+    // Check if shipping entry already exists by sourceId
+    const existingShipping = await Shipping.findOne({
+      sourceId: purchase._id,
+      sourceModel: 'Purchase',
+>>>>>>> blackboxai/login-mongodb-fix
       itemDescription: purchase.itemDescription,
     });
 
     if (!existingShipping) {
+<<<<<<< HEAD
       const shippingEntry = new Shipping({
         itemDescription: purchase.itemDescription,
         totalQuantity: purchase.quantity,
@@ -79,6 +124,35 @@ async function createShippingFromPurchases() {
       });
       await shippingEntry.save();
       newShippingEntries.push(shippingEntry);
+=======
+      try {
+        const shippingEntry = new Shipping({
+          itemDescription: purchase.itemDescription,
+          totalQuantity: purchase.quantity,
+          source: 'Local Purchase',
+          sourceId: purchase._id,
+          sourceModel: 'Purchase',
+          sourceSerialNumber: purchase.serialNumber,
+          vendorName: purchase.vendorName,
+          category: purchase.category,
+        });
+        await shippingEntry.save();
+        newShippingEntries.push(shippingEntry);
+        logger.info('Created shipping entry from purchase', {
+          itemDescription: purchase.itemDescription,
+          srNo: shippingEntry.srNo
+        });
+      } catch (error) {
+        if (error.code === 11000) {
+          logger.warn('Duplicate shipping entry detected, skipping', {
+            itemDescription: purchase.itemDescription,
+            sourceId: purchase._id
+          });
+        } else {
+          throw error;
+        }
+      }
+>>>>>>> blackboxai/login-mongodb-fix
     }
   }
   return newShippingEntries;
@@ -184,6 +258,7 @@ export async function GET(req) {
     const syncPending = url.searchParams.get('syncPending');
 
     if (syncData === 'true') {
+<<<<<<< HEAD
       // Sync data from imports and purchases
       const [importEntries, purchaseEntries] = await Promise.all([
         createShippingFromImports(),
@@ -193,6 +268,15 @@ export async function GET(req) {
       logger.info('Synced shipping data', { 
         importEntries: importEntries.length, 
         purchaseEntries: purchaseEntries.length 
+=======
+      // Sync data from imports and purchases sequentially to avoid race conditions
+      const importEntries = await createShippingFromImports();
+      const purchaseEntries = await createShippingFromPurchases();
+
+      logger.info('Synced shipping data', {
+        importEntries: importEntries.length,
+        purchaseEntries: purchaseEntries.length
+>>>>>>> blackboxai/login-mongodb-fix
       });
     }
 
@@ -204,7 +288,11 @@ export async function GET(req) {
 
     const shippingEntries = await Shipping.find({})
       .populate('sourceId')
+<<<<<<< HEAD
       .sort({ createdAt: -1 });
+=======
+      .sort({ srNo: 1 });
+>>>>>>> blackboxai/login-mongodb-fix
 
     return NextResponse.json(shippingEntries);
   } catch (error) {

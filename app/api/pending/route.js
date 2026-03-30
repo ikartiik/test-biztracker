@@ -41,7 +41,11 @@ export async function GET(req) {
 
     await dbConnect();
 
+<<<<<<< HEAD
     const pending = await Pending.find({}).sort({ createdAt: -1 });
+=======
+const pending = await Pending.find({ status: { $in: ['Pending', 'Received'] }, qtyPending: { $gt: 0 } }).sort({ createdAt: -1 });
+>>>>>>> blackboxai/login-mongodb-fix
     
     logger.info('Pending items fetched successfully', {
       method: 'GET',
