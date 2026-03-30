@@ -50,7 +50,7 @@ export async function GET(req) {
       vendors
     ] = await Promise.all([
       Purchase.find(dateFilter),
-      Pending.find(dateFilter),
+      Pending.find({ ...dateFilter, status: { $in: ['Pending', 'Received'] } }),
       Expense.find(dateFilter),
       Import.find(dateFilter),
       Shipping.find(dateFilter),
@@ -63,11 +63,12 @@ export async function GET(req) {
     const purchasedCount = purchases.filter(p => p.status === 'Purchased').length;
     const quotationCount = purchases.filter(p => p.status === 'Quotation').length;
 
-    // Calculate pending statistics
+    // Calculate pending statistics (only active pending/received)
     const totalPending = pending.length;
     const urgentPending = pending.filter(p => p.priority === 'Urgent').length;
     const receivedPending = pending.filter(p => p.status === 'Received').length;
     const pendingItems = pending.filter(p => p.status === 'Pending').length;
+    // Note: Shipped items now excluded via query filter above
 
     // Calculate expense statistics
     const totalExpenses = expenses.length;
