@@ -152,45 +152,12 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Summary strip — financial snapshot */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 px-5 py-4 flex items-center gap-4">
-            <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/30">
-              <ArrowTrendingUpIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Total Credits</p>
-              <p className="text-base font-bold text-gray-900 dark:text-white">
-                AED {(stats?.summary?.expenses?.totalCredit || 0).toLocaleString()}
-              </p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 px-5 py-4 flex items-center gap-4">
-            <div className="p-2 rounded-lg bg-red-50 dark:bg-red-900/30">
-              <ArrowTrendingDownIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Total Debits</p>
-              <p className="text-base font-bold text-gray-900 dark:text-white">
-                AED {(stats?.summary?.expenses?.totalDebit || 0).toLocaleString()}
-              </p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 px-5 py-4 flex items-center gap-4">
-            <div className={`p-2 rounded-lg ${balance >= 0 ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-red-50 dark:bg-red-900/30'}`}>
-              <BanknotesIcon className={`w-5 h-5 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`} />
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Net Balance</p>
-              <p className={`text-base font-bold ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
-                AED {balance.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </div>
+
 
         {/* Module cards */}
         <div>
+          {/* StatusGrid and Charts removed - per user request */}
+        
           <h2 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
             Quick Access
           </h2>

@@ -50,7 +50,7 @@ export async function GET(req) {
       vendors
     ] = await Promise.all([
       Purchase.find(dateFilter),
-      Pending.find({ ...dateFilter, status: { $in: ['Pending', 'Received'] } }),
+      Pending.find({ ...dateFilter, status: { $in: ['Pending', 'Received'] }, qtyPending: { $gt: 0 } }),
       Expense.find(dateFilter),
       Import.find(dateFilter),
       Shipping.find(dateFilter),
