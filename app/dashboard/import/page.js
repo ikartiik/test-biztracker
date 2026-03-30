@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/DashboardLayout';
@@ -151,6 +151,40 @@ export default function ImportPage() {
   const updateItem = (i, field, val) => setForm(f => ({
     ...f, items: f.items.map((it, idx) => idx === i ? { ...it, [field]: val } : it),
   }));
+
+  const csvInputRef = useRef(null);
+
+  const downloadTemplate = () => {
+    const csv = 'item_description,quantity\nSample Item 1,5\nSample Item 2,3\n';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = 'import-items-template.csv';
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const handleCSVUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const lines = ev.target.result.trim().split('\n').filter(Boolean);
+        // Skip header row if it starts with 'item' (case-insensitive)
+        const dataLines = lines[0]?.toLowerCase().startsWith('item') ? lines.slice(1) : lines;
+        const parsed = dataLines.map(line => {
+          const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+          return { itemDescription: cols[0] || '', quantity: parseInt(cols[1]) || 1 };
+        }).filter(it => it.itemDescription);
+        if (!parsed.length) { toast.error('No valid rows found in CSV'); return; }
+        setForm(f => ({ ...f, items: parsed }));
+        toast.success(`Loaded ${parsed.length} items from CSV`);
+      } catch { toast.error('Failed to parse CSV'); }
+    };
+    reader.readAsText(file);
+    // Reset so the same file can be re-uploaded
+    e.target.value = '';
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -458,10 +492,22 @@ export default function ImportPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-semibold text-foreground">Items</label>
-                  <button type="button" onClick={addItem}
-                    className="text-xs text-primary hover:underline font-semibold flex items-center gap-1">
-                    <PlusIcon className="w-3.5 h-3.5" /> Add Item
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={downloadTemplate}
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                      <ArrowDownTrayIcon className="w-3.5 h-3.5" /> Template
+                    </button>
+                    <button type="button" onClick={() => csvInputRef.current?.click()}
+                      className="text-xs text-violet-600 hover:underline font-semibold flex items-center gap-1">
+                      <DocumentArrowUpIcon className="w-3.5 h-3.5" /> Import CSV
+                    </button>
+                    <input ref={csvInputRef} type="file" accept=".csv" className="hidden"
+                      onChange={handleCSVUpload} />
+                    <button type="button" onClick={addItem}
+                      className="text-xs text-primary hover:underline font-semibold flex items-center gap-1">
+                      <PlusIcon className="w-3.5 h-3.5" /> Add Item
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   {form.items.map((item, idx) => (
