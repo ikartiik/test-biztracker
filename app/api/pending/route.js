@@ -41,7 +41,7 @@ export async function GET(req) {
 
     await dbConnect();
 
-    const pending = await Pending.find({ status: { $in: ['Pending', 'Received'] } }).sort({ createdAt: -1 });
+const pending = await Pending.find({ status: { $in: ['Pending', 'Received'] }, qtyPending: { $gt: 0 } }).sort({ createdAt: -1 });
     
     logger.info('Pending items fetched successfully', {
       method: 'GET',
